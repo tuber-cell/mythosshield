@@ -6,6 +6,23 @@
 <title>MythosShield — Cybersecurity Compliance for Indian Banks</title>
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+// Firebase Configuration (REPLACE WITH YOUR CONFIG from Step 4.2)
+const firebaseConfig = {
+  apiKey: "AIzaSyBFJ1mYgvA-jw5_GFc-HgiOJZjuTgR9hdQ",
+  authDomain: "control-phone-fe93e.firebaseapp.com",
+  projectId: "control-phone-fe93e",
+  storageBucket: "control-phone-fe93e.firebasestorage.app",
+  messagingSenderId: "1078261179870",
+  appId: "1:1078261179870:web:2f6c1f5f16df667c7c694f"
+};
+
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
 <style>
 :root {
   --bg: #0a0c10;
@@ -352,7 +369,7 @@ input:focus, select:focus { border-color: var(--accent); }
 </div>
 
 <script>
-const API = 'http://localhost:5000';
+const API = 'https://mythosshield-backend.onrender.com';
 let token = localStorage.getItem('ms_token');
 let bankName = localStorage.getItem('ms_bank');
 let scans = [];
@@ -423,46 +440,46 @@ async function doLogin() {
   }
 }
 
-async function doRegister() {
-  const bank_name = document.getElementById('reg-bank').value;
-  const email = document.getElementById('reg-email').value;
-  const gst_number = document.getElementById('reg-gst').value;
-  const password = document.getElementById('reg-password').value;
+async function doLogin() {
+  const email = document.getElementById('login-email').value;
+  const password = document.getElementById('login-password').value;
   
-  if (!bank_name || !email || !password) {
-    toast('Please fill all required fields', 'error');
+  if (!email || !password) {
+    toast('Please enter email and password', 'error');
     return;
   }
   
   const btn = event.target;
   const originalText = btn.textContent;
-  btn.textContent = 'Creating account...';
+  btn.textContent = 'Logging in...';
   btn.disabled = true;
   
-  const data = { bank_name, email, gst_number, password };
-  
   try {
-    const r = await fetch(`${API}/auth/register`, { 
-      method:'POST', 
-      headers:{'Content-Type':'application/json'}, 
-      body: JSON.stringify(data) 
-    });
-    const d = await r.json();
+    // Sign in with Firebase Auth
+    const userCredential = await auth.signInWithEmailAndPassword(email, password);
+    const idToken = await userCredential.user.getIdToken();
     
-    if (!r.ok) {
-      toast(d.error || 'Registration failed', 'error');
-    } else {
-      toast('✅ Account created successfully! Please login.', 'success');
-      // Clear form
-      document.getElementById('reg-bank').value = '';
-      document.getElementById('reg-email').value = '';
-      document.getElementById('reg-gst').value = '';
-      document.getElementById('reg-password').value = '';
-      // Switch to login tab
-      switchAuthTab('login');
-    }
-  } catch(e) { 
-    toast('❌ Cannot connect to server. Make sure backend is running on port 5000', 'error'); 
+    // Verify token with backend
+    const r = await fetch(`${API}/auth/login`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${idToken}`
+      }
+    });
+    
+    if (!r.ok) throw new Error('Login failed');
+    
+    const data = await r.json();
+    token = idToken;
+    bankName = data.bank_name;
+    localStorage.setItem('ms_token', token);
+    localStorage.setItem('ms_bank', bankName);
+    toast('✅ Login successful!', 'success');
+    setTimeout(() => showApp(), 500);
+    
+  } catch(e) {
+    toast(e.message || 'Invalid email or password', 'error');
   } finally {
     btn.textContent = originalText;
     btn.disabled = false;
@@ -760,19 +777,20 @@ function exportCompliancePDF() {
 }
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
-async function apiFetch(path, method='GET', body=null) {
-  const opts = { method, headers: { 'Content-Type':'application/json', 'Authorization': `Bearer ${token}` } };
+async function apiFetch(path, method = 'GET', body = null) {
+  const token = localStorage.getItem('ms_token');
+  const opts = { 
+    method, 
+    headers: { 
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    } 
+  };
   if (body) opts.body = JSON.stringify(body);
   const r = await fetch(API + path, opts);
   const d = await r.json();
   if (!r.ok) throw new Error(d.error || 'API error');
   return d;
-}
-
-function toast(msg, type='success') {
-  const t = document.getElementById('toast');
-  t.textContent = msg; t.className = `toast ${type} show`;
-  setTimeout(() => t.classList.remove('show'), 3000);
 }
 </script>
 </body>
