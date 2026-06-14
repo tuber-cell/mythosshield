@@ -10,19 +10,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-// Firebase Configuration (REPLACE WITH YOUR CONFIG from Step 4.2)
-const firebaseConfig = {
-  apiKey: "AIzaSyBFJ1mYgvA-jw5_GFc-HgiOJZjuTgR9hdQ",
-  authDomain: "control-phone-fe93e.firebaseapp.com",
-  projectId: "control-phone-fe93e",
-  storageBucket: "control-phone-fe93e.firebasestorage.app",
-  messagingSenderId: "1078261179870",
-  appId: "1:1078261179870:web:2f6c1f5f16df667c7c694f"
-};
 
-// Initialize Firebase
-firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
 <style>
 :root {
   --bg: #0a0c10;
@@ -43,115 +31,87 @@ const auth = firebase.auth();
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; }
 
-/* ── Layout ── */
 #app { display: flex; min-height: 100vh; }
 #sidebar {
   width: 220px; min-height: 100vh; background: var(--surface);
   border-right: 1px solid var(--border); display: flex; flex-direction: column;
   padding: 0; position: fixed; top: 0; left: 0; bottom: 0; z-index: 10;
-  transition: transform .3s;
 }
 #main { margin-left: 220px; flex: 1; padding: 32px 36px; }
 
-/* ── Logo ── */
 .logo {
   padding: 24px 20px 20px; border-bottom: 1px solid var(--border);
   font-family: var(--mono); font-size: 13px; font-weight: 700;
   color: var(--accent); letter-spacing: 0.05em;
 }
-.logo span { color: var(--muted); font-weight: 400; display: block; font-size: 10px; margin-top: 2px; letter-spacing: 0.12em; text-transform: uppercase; }
+.logo span { color: var(--muted); font-weight: 400; display: block; font-size: 10px; margin-top: 2px; }
 
-/* ── Nav ── */
 nav { padding: 12px 0; flex: 1; }
 .nav-item {
   display: flex; align-items: center; gap: 10px;
   padding: 10px 20px; font-size: 13px; color: var(--muted);
-  cursor: pointer; transition: all .15s; border-left: 2px solid transparent;
-  font-family: var(--sans); font-weight: 400;
+  cursor: pointer; border-left: 2px solid transparent;
 }
 .nav-item:hover { color: var(--text); background: var(--surface2); }
 .nav-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(0,229,160,.06); }
-.nav-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+.nav-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 
 .sidebar-footer { padding: 16px 20px; border-top: 1px solid var(--border); font-size: 11px; color: var(--muted); }
 
-/* ── Cards ── */
-.card {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 8px; padding: 24px;
-}
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 24px; }
 .card-sm { padding: 16px 20px; }
 .grid-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; margin-bottom: 24px; }
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-.metric-label { font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); font-family: var(--mono); }
-.metric-value { font-size: 36px; font-weight: 700; font-family: var(--mono); margin-top: 6px; line-height: 1; }
+.metric-label { font-size: 11px; text-transform: uppercase; color: var(--muted); font-family: var(--mono); }
+.metric-value { font-size: 36px; font-weight: 700; font-family: var(--mono); margin-top: 6px; }
 .metric-sub { font-size: 12px; color: var(--muted); margin-top: 6px; }
 
-/* ── Buttons ── */
 .btn {
   display: inline-flex; align-items: center; gap: 8px;
   padding: 9px 18px; border-radius: 6px; font-size: 13px;
   font-family: var(--mono); font-weight: 700; cursor: pointer;
-  border: none; transition: all .15s; letter-spacing: .03em;
+  border: none;
 }
 .btn-primary { background: var(--accent); color: #000; }
 .btn-primary:hover { background: #00c98a; }
 .btn-ghost { background: transparent; color: var(--text); border: 1px solid var(--border2); }
 .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
-.btn-danger { background: var(--danger); color: #fff; }
 .btn-sm { padding: 6px 12px; font-size: 11px; }
 
-/* ── Badges ── */
-.badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-family: var(--mono); font-weight: 700; letter-spacing: .05em; }
-.badge-critical { background: rgba(255,71,87,.2); color: var(--danger); border: 1px solid rgba(255,71,87,.3); }
-.badge-high { background: rgba(255,165,2,.15); color: var(--warn); border: 1px solid rgba(255,165,2,.25); }
-.badge-medium { background: rgba(255,215,0,.12); color: #ffd700; border: 1px solid rgba(255,215,0,.2); }
-.badge-low { background: rgba(46,213,115,.12); color: var(--info); border: 1px solid rgba(46,213,115,.2); }
-.badge-ok { background: rgba(0,229,160,.12); color: var(--accent); border: 1px solid rgba(0,229,160,.2); }
-.badge-partial { background: rgba(255,165,2,.15); color: var(--warn); border: 1px solid rgba(255,165,2,.25); }
-.badge-fail { background: rgba(255,71,87,.2); color: var(--danger); border: 1px solid rgba(255,71,87,.3); }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-family: var(--mono); font-weight: 700; }
+.badge-critical { background: rgba(255,71,87,.2); color: var(--danger); }
+.badge-high { background: rgba(255,165,2,.15); color: var(--warn); }
+.badge-medium { background: rgba(255,215,0,.12); color: #ffd700; }
+.badge-low { background: rgba(46,213,115,.12); color: var(--info); }
+.badge-ok { background: rgba(0,229,160,.12); color: var(--accent); }
 
-/* ── Section headers ── */
-.section-title { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .12em; color: var(--muted); margin-bottom: 16px; }
+.section-title { font-family: var(--mono); font-size: 11px; text-transform: uppercase; color: var(--muted); margin-bottom: 16px; }
 h1 { font-size: 22px; font-weight: 600; margin-bottom: 4px; }
-h2 { font-size: 16px; font-weight: 500; }
 .page-sub { color: var(--muted); font-size: 13px; margin-bottom: 28px; }
 
-/* ── Table ── */
-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-th { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
-td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
-tr:last-child td { border-bottom: none; }
-tr:hover td { background: var(--surface2); }
-
-/* ── Forms ── */
 .form-group { margin-bottom: 18px; }
-label { display: block; font-size: 12px; font-family: var(--mono); color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .08em; }
-input, select { width: 100%; padding: 10px 14px; background: var(--surface2); border: 1px solid var(--border2); border-radius: 6px; color: var(--text); font-size: 14px; font-family: var(--sans); outline: none; transition: border-color .15s; }
+label { display: block; font-size: 12px; font-family: var(--mono); color: var(--muted); margin-bottom: 6px; text-transform: uppercase; }
+input, select { width: 100%; padding: 10px 14px; background: var(--surface2); border: 1px solid var(--border2); border-radius: 6px; color: var(--text); font-size: 14px; outline: none; }
 input[type="file"] { padding: 8px 10px; }
 input:focus, select:focus { border-color: var(--accent); }
 
-/* ── Compliance check list ── */
 .check-item { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
-.check-item:last-child { border-bottom: none; }
-.check-icon { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; margin-top: 1px; }
+.check-icon { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; }
 .check-pass { background: rgba(0,229,160,.2); color: var(--accent); }
 .check-fail { background: rgba(255,71,87,.2); color: var(--danger); }
 .check-text { font-size: 13px; flex: 1; }
 .check-gap { font-size: 12px; color: var(--warn); margin-top: 4px; }
 
-/* ── Tabs ── */
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
-.tab { padding: 10px 16px; font-size: 13px; font-family: var(--mono); color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; transition: all .15s; }
+.tab { padding: 10px 16px; font-size: 13px; font-family: var(--mono); color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; }
 .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-.tab:hover { color: var(--text); }
 
-/* ── Misc ── */
 .divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
-.tag { font-size: 11px; padding: 2px 8px; background: var(--surface2); border: 1px solid var(--border2); border-radius: 4px; font-family: var(--mono); color: var(--muted); }
-.empty { text-align: center; padding: 40px; color: var(--muted); font-size: 13px; }
+.tag { font-size: 11px; padding: 2px 8px; background: var(--surface2); border: 1px solid var(--border2); border-radius: 4px; color: var(--muted); }
+.empty { text-align: center; padding: 40px; color: var(--muted); }
 .loading { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border2); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
 .toast {
   position: fixed; bottom: 24px; right: 24px; padding: 12px 20px;
   border-radius: 8px; font-size: 13px; font-family: var(--mono);
@@ -162,19 +122,13 @@ input:focus, select:focus { border-color: var(--accent); }
 .toast.success { border-color: var(--accent); color: var(--accent); }
 .toast.error { border-color: var(--danger); color: var(--danger); }
 
-/* ── Auth page ── */
 #auth-page { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
 .auth-box { width: 380px; }
 .auth-logo { font-family: var(--mono); font-size: 22px; font-weight: 700; color: var(--accent); margin-bottom: 6px; }
 .auth-sub { font-size: 13px; color: var(--muted); margin-bottom: 28px; }
-.auth-tabs { display: flex; gap: 0; margin-bottom: 24px; border: 1px solid var(--border2); border-radius: 6px; overflow: hidden; }
-.auth-tab { flex: 1; padding: 9px; text-align: center; font-family: var(--mono); font-size: 12px; cursor: pointer; transition: all .15s; color: var(--muted); }
+.auth-tabs { display: flex; margin-bottom: 24px; border: 1px solid var(--border2); border-radius: 6px; overflow: hidden; }
+.auth-tab { flex: 1; padding: 9px; text-align: center; font-family: var(--mono); font-size: 12px; cursor: pointer; color: var(--muted); }
 .auth-tab.active { background: var(--accent); color: #000; font-weight: 700; }
-
-/* ── SBOM tree ── */
-.tree-node { margin-left: 20px; }
-.tree-row { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; font-family: var(--mono); }
-.tree-row:hover { background: var(--surface2); }
 </style>
 </head>
 <body>
@@ -182,7 +136,7 @@ input:focus, select:focus { border-color: var(--accent); }
 <div id="toast" class="toast"></div>
 
 <!-- AUTH PAGE -->
-<div id="auth-page" style="display:none">
+<div id="auth-page">
   <div class="auth-box">
     <div class="auth-logo">⬡ MythosShield</div>
     <div class="auth-sub">Cybersecurity compliance platform for Indian banks</div>
@@ -201,7 +155,7 @@ input:focus, select:focus { border-color: var(--accent); }
       <div class="form-group"><label>Bank Name</label><input type="text" id="reg-bank" placeholder="State Bank of India"></div>
       <div class="form-group"><label>Email</label><input type="email" id="reg-email" placeholder="ciso@yourbank.in"></div>
       <div class="form-group"><label>GST Number (optional)</label><input type="text" id="reg-gst" placeholder="22AAAAA0000A1Z5"></div>
-      <div class="form-group"><label>Password</label><input type="password" id="reg-password" placeholder="Min 8 chars, 1 number, 1 special"></div>
+      <div class="form-group"><label>Password</label><input type="password" id="reg-password" placeholder="Min 6 characters"></div>
       <button class="btn btn-primary" style="width:100%" onclick="doRegister()">Create Account</button>
     </div>
   </div>
@@ -225,35 +179,15 @@ input:focus, select:focus { border-color: var(--accent); }
   </div>
 
   <div id="main">
-
-    <!-- DASHBOARD -->
     <div id="page-dashboard">
       <h1>Dashboard</h1>
       <p class="page-sub">Security posture overview — CERT-In / RBI compliance</p>
-
       <div class="grid-4">
-        <div class="card card-sm">
-          <div class="metric-label">Compliance Score</div>
-          <div class="metric-value" id="m-score" style="color:var(--accent)">—</div>
-          <div class="metric-sub">Last scan average</div>
-        </div>
-        <div class="card card-sm">
-          <div class="metric-label">Components Scanned</div>
-          <div class="metric-value" id="m-components" style="color:var(--accent2)">—</div>
-          <div class="metric-sub">SBOM artifacts</div>
-        </div>
-        <div class="card card-sm">
-          <div class="metric-label">Critical CVEs</div>
-          <div class="metric-value" id="m-critical" style="color:var(--danger)">—</div>
-          <div class="metric-sub">Requires immediate action</div>
-        </div>
-        <div class="card card-sm">
-          <div class="metric-label">AI Models Found</div>
-          <div class="metric-value" id="m-models" style="color:var(--warn)">—</div>
-          <div class="metric-sub">AIBOM inventory</div>
-        </div>
+        <div class="card card-sm"><div class="metric-label">Compliance Score</div><div class="metric-value" id="m-score">—</div><div class="metric-sub">Last scan average</div></div>
+        <div class="card card-sm"><div class="metric-label">Components Scanned</div><div class="metric-value" id="m-components">—</div><div class="metric-sub">SBOM artifacts</div></div>
+        <div class="card card-sm"><div class="metric-label">Critical CVEs</div><div class="metric-value" id="m-critical">—</div><div class="metric-sub">Requires immediate action</div></div>
+        <div class="card card-sm"><div class="metric-label">AI Models Found</div><div class="metric-value" id="m-models">—</div><div class="metric-sub">AIBOM inventory</div></div>
       </div>
-
       <div class="grid-2">
         <div class="card">
           <div class="section-title">Recent Scans</div>
@@ -263,43 +197,33 @@ input:focus, select:focus { border-color: var(--accent); }
         </div>
         <div class="card">
           <div class="section-title">Regulatory Status</div>
-          <div id="reg-status">
-            <div class="check-item"><div class="check-icon check-fail">✕</div><div class="check-text">Run a scan to assess compliance</div></div>
-          </div>
+          <div id="reg-status"><div class="check-item"><div class="check-icon check-fail">✕</div><div class="check-text">Run a scan to assess compliance</div></div></div>
         </div>
       </div>
     </div>
 
-    <!-- NEW SCAN -->
     <div id="page-scan" style="display:none">
       <h1>New Scan</h1>
       <p class="page-sub">Generate SBOM + AIBOM and check for vulnerabilities</p>
       <div class="card" style="max-width:560px">
         <div class="section-title">Scan Target</div>
-        
         <div class="form-group">
           <label>Option 1: GitHub URL or Local Folder Path</label>
           <input type="text" id="scan-source" placeholder="https://github.com/your-org/your-app  or  /path/to/folder">
         </div>
-        
         <div class="form-group">
           <label>Option 2: Upload ZIP File</label>
           <input type="file" id="scan-zip" accept=".zip">
           <small style="color:var(--muted);display:block;margin-top:5px">Select a ZIP file containing your source code</small>
         </div>
-        
         <div style="display:flex;gap:12px;align-items:center">
-          <button class="btn btn-primary" onclick="startScan()">
-            <span id="scan-btn-text">Run Scan</span>
-          </button>
+          <button class="btn btn-primary" onclick="startScan()"><span id="scan-btn-text">Run Scan</span></button>
           <span id="scan-status" style="font-size:12px;color:var(--muted)"></span>
         </div>
-        
         <hr class="divider">
-        
         <div class="section-title">What this scan does</div>
         <div style="font-size:13px;color:var(--muted);line-height:1.8">
-          1. Parses <code style="color:var(--accent);background:var(--surface2);padding:1px 5px;border-radius:3px">requirements.txt</code> and <code style="color:var(--accent);background:var(--surface2);padding:1px 5px;border-radius:3px">package.json</code> to build SBOM<br>
+          1. Parses requirements.txt and package.json to build SBOM<br>
           2. Scans for AI model files (.pt, .h5, .onnx, .pkl…) for AIBOM<br>
           3. Queries NVD API for known CVEs in each component<br>
           4. Scores vulnerabilities by exploit type (RCE, priv esc, DoS…)<br>
@@ -308,55 +232,35 @@ input:focus, select:focus { border-color: var(--accent); }
       </div>
     </div>
 
-    <!-- RESULTS -->
     <div id="page-results" style="display:none">
       <h1>Scan Results</h1>
       <p class="page-sub">SBOM, AIBOM, and vulnerability findings</p>
-
       <div style="margin-bottom:20px;display:flex;gap:12px;align-items:center">
-        <select id="scan-select" style="background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:8px 12px;border-radius:6px;font-size:13px;font-family:var(--mono)" onchange="loadScanResult()">
-          <option value="">Select a scan…</option>
-        </select>
+        <select id="scan-select" onchange="loadScanResult()"><option value="">Select a scan…</option></select>
         <button class="btn btn-ghost btn-sm" onclick="exportPDF()">↓ Export PDF</button>
       </div>
-
-      <div id="results-content">
-        <div class="empty">Select a scan above to view results</div>
-      </div>
+      <div id="results-content"><div class="empty">Select a scan above to view results</div></div>
     </div>
 
-    <!-- COMPLIANCE -->
     <div id="page-compliance" style="display:none">
       <h1>Compliance Reports</h1>
       <p class="page-sub">DPDPA · SEBI · BIS · RBI DPIP — gap analysis</p>
-
       <div style="margin-bottom:20px;display:flex;gap:12px;align-items:center">
-        <select id="comp-scan-select" style="background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:8px 12px;border-radius:6px;font-size:13px;font-family:var(--mono)" onchange="loadCompliance()">
-          <option value="">Select a scan…</option>
-        </select>
+        <select id="comp-scan-select" onchange="loadCompliance()"><option value="">Select a scan…</option></select>
         <button class="btn btn-ghost btn-sm" onclick="exportCompliancePDF()">↓ Export PDF</button>
       </div>
-
-      <div id="compliance-content">
-        <div class="empty">Select a scan to generate compliance reports</div>
-      </div>
+      <div id="compliance-content"><div class="empty">Select a scan to generate compliance reports</div></div>
     </div>
 
-    <!-- SHADOW AI -->
     <div id="page-shadow" style="display:none">
       <h1>Shadow AI Detection</h1>
       <p class="page-sub">Detect unauthorised AI tool usage from proxy/network logs</p>
       <div class="grid-2">
         <div class="card">
           <div class="section-title">Upload Log Data (JSON)</div>
-          <div class="form-group">
-            <label>Paste JSON proxy log array</label>
-            <textarea id="shadow-logs" rows="10" style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;color:var(--text);padding:12px;font-family:var(--mono);font-size:12px;resize:vertical" placeholder='[{"dst_host":"api.openai.com","bytes_out":120000,"timestamp":"2025-01-01T10:00:00Z","request_body":"..."}]'></textarea>
-          </div>
-          <div style="display:flex;gap:10px">
-            <button class="btn btn-primary" onclick="runShadowAI()">Analyse Logs</button>
-            <button class="btn btn-ghost btn-sm" onclick="loadSampleLogs()">Load Sample</button>
-          </div>
+          <textarea id="shadow-logs" rows="8" placeholder='[{"dst_host":"api.openai.com","bytes_out":120000}]'></textarea>
+          <div style="margin-top:12px"><button class="btn btn-primary" onclick="runShadowAI()">Analyse Logs</button>
+          <button class="btn btn-ghost btn-sm" onclick="loadSampleLogs()">Load Sample</button></div>
         </div>
         <div class="card">
           <div class="section-title">Detection Results</div>
@@ -364,21 +268,49 @@ input:focus, select:focus { border-color: var(--accent); }
         </div>
       </div>
     </div>
-
   </div>
 </div>
 
 <script>
+// Firebase Configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyBFJ1mYgvA-jw5_GFc-HgIOJZjuTgR9hdQ",
+  authDomain: "control-phone-fe93e.firebaseapp.com",
+  projectId: "control-phone-fe93e",
+  storageBucket: "control-phone-fe93e.firebasestorage.app",
+  messagingSenderId: "1078261179870",
+  appId: "1:1078261179870:web:2f6c1f5f16df667c7c694f"
+};
+
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+
 const API = 'https://mythosshield-backend.onrender.com';
 let token = localStorage.getItem('ms_token');
 let bankName = localStorage.getItem('ms_bank');
 let scans = [];
 
-// ─── Init ────────────────────────────────────────────────────────────────────
-window.onload = () => {
-  if (token) showApp();
-  else showAuth();
-};
+// Check auth state on load
+auth.onAuthStateChanged((user) => {
+  if (user && token) {
+    showApp();
+  } else if (user && !token) {
+    // User is logged into Firebase but token missing
+    user.getIdToken().then(idToken => {
+      token = idToken;
+      localStorage.setItem('ms_token', token);
+      showApp();
+    });
+  } else if (!user && token) {
+    // Token exists but no Firebase user
+    localStorage.removeItem('ms_token');
+    localStorage.removeItem('ms_bank');
+    showAuth();
+  } else {
+    showAuth();
+  }
+});
 
 function showAuth() {
   document.getElementById('auth-page').style.display = 'flex';
@@ -388,16 +320,18 @@ function showAuth() {
 function showApp() {
   document.getElementById('auth-page').style.display = 'none';
   document.getElementById('app').style.display = 'flex';
-  document.getElementById('sidebar-bank').textContent = bankName || '';
+  const user = auth.currentUser;
+  const displayName = user?.displayName || user?.email?.split('@')[0] || bankName || 'Bank User';
+  document.getElementById('sidebar-bank').textContent = displayName;
+  localStorage.setItem('ms_bank', displayName);
   loadDashboard();
 }
 
-// ─── Auth ─────────────────────────────────────────────────────────────────────
 function switchAuthTab(tab) {
   document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
   event.target.classList.add('active');
-  document.getElementById('login-form').style.display = tab === 'login' ? '' : 'none';
-  document.getElementById('register-form').style.display = tab === 'register' ? '' : 'none';
+  document.getElementById('login-form').style.display = tab === 'login' ? 'block' : 'none';
+  document.getElementById('register-form').style.display = tab === 'register' ? 'block' : 'none';
 }
 
 async function doLogin() {
@@ -415,101 +349,127 @@ async function doLogin() {
   btn.disabled = true;
   
   try {
-    const r = await fetch(`${API}/auth/login`, { 
-      method:'POST', 
-      headers:{'Content-Type':'application/json'}, 
-      body: JSON.stringify({email, password}) 
-    });
-    const d = await r.json();
-    
-    if (!r.ok) {
-      toast(d.error || 'Invalid email or password', 'error');
-    } else {
-      toast('✅ Login successful! Redirecting...', 'success');
-      token = d.access_token; 
-      bankName = d.bank_name;
-      localStorage.setItem('ms_token', token);
-      localStorage.setItem('ms_bank', bankName);
-      setTimeout(() => showApp(), 500);
-    }
-  } catch(e) { 
-    toast('❌ Cannot connect to server. Make sure backend is running on port 5000', 'error'); 
-  } finally {
-    btn.textContent = originalText;
-    btn.disabled = false;
-  }
-}
-
-async function doLogin() {
-  const email = document.getElementById('login-email').value;
-  const password = document.getElementById('login-password').value;
-  
-  if (!email || !password) {
-    toast('Please enter email and password', 'error');
-    return;
-  }
-  
-  const btn = event.target;
-  const originalText = btn.textContent;
-  btn.textContent = 'Logging in...';
-  btn.disabled = true;
-  
-  try {
-    // Sign in with Firebase Auth
     const userCredential = await auth.signInWithEmailAndPassword(email, password);
     const idToken = await userCredential.user.getIdToken();
     
-    // Verify token with backend
-    const r = await fetch(`${API}/auth/login`, {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${idToken}`
-      }
-    });
-    
-    if (!r.ok) throw new Error('Login failed');
-    
-    const data = await r.json();
     token = idToken;
-    bankName = data.bank_name;
+    bankName = userCredential.user.displayName || email.split('@')[0];
     localStorage.setItem('ms_token', token);
     localStorage.setItem('ms_bank', bankName);
+    
     toast('✅ Login successful!', 'success');
     setTimeout(() => showApp(), 500);
     
-  } catch(e) {
-    toast(e.message || 'Invalid email or password', 'error');
+  } catch(error) {
+    let message = 'Login failed';
+    if (error.code === 'auth/user-not-found') message = 'Email not found';
+    if (error.code === 'auth/wrong-password') message = 'Wrong password';
+    if (error.code === 'auth/invalid-email') message = 'Invalid email';
+    if (error.code === 'auth/too-many-requests') message = 'Too many attempts. Try later';
+    toast(message, 'error');
   } finally {
     btn.textContent = originalText;
     btn.disabled = false;
   }
 }
 
-// ─── Navigation ───────────────────────────────────────────────────────────────
+async function doRegister() {
+  const bank_name = document.getElementById('reg-bank').value;
+  const email = document.getElementById('reg-email').value;
+  const gst_number = document.getElementById('reg-gst').value;
+  const password = document.getElementById('reg-password').value;
+  
+  if (!bank_name || !email || !password) {
+    toast('Please fill all required fields', 'error');
+    return;
+  }
+  
+  if (password.length < 6) {
+    toast('Password must be at least 6 characters', 'error');
+    return;
+  }
+  
+  const btn = event.target;
+  const originalText = btn.textContent;
+  btn.textContent = 'Creating account...';
+  btn.disabled = true;
+  
+  try {
+    const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+    await userCredential.user.updateProfile({ displayName: bank_name });
+    
+    const idToken = await userCredential.user.getIdToken();
+    
+    // Try to save to backend (optional - don't fail if backend is down)
+    try {
+      await fetch(`${API}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+        body: JSON.stringify({ bank_name, email, gst_number, firebase_uid: userCredential.user.uid })
+      });
+    } catch(backendError) {
+      console.warn('Backend save failed, but Firebase account created');
+    }
+    
+    toast('✅ Account created successfully! Please login.', 'success');
+    
+    document.getElementById('reg-bank').value = '';
+    document.getElementById('reg-email').value = '';
+    document.getElementById('reg-gst').value = '';
+    document.getElementById('reg-password').value = '';
+    switchAuthTab('login');
+    
+  } catch(error) {
+    let message = 'Registration failed';
+    if (error.code === 'auth/email-already-in-use') message = 'Email already registered';
+    if (error.code === 'auth/weak-password') message = 'Password too weak (min 6 characters)';
+    if (error.code === 'auth/invalid-email') message = 'Invalid email address';
+    toast(message, 'error');
+  } finally {
+    btn.textContent = originalText;
+    btn.disabled = false;
+  }
+}
+
+function logout() {
+  auth.signOut().then(() => {
+    token = null;
+    bankName = null;
+    localStorage.removeItem('ms_token');
+    localStorage.removeItem('ms_bank');
+    showAuth();
+    toast('Logged out successfully', 'success');
+  }).catch(() => {
+    token = null;
+    bankName = null;
+    localStorage.removeItem('ms_token');
+    localStorage.removeItem('ms_bank');
+    showAuth();
+  });
+}
+
 function showPage(name) {
   document.querySelectorAll('[id^="page-"]').forEach(p => p.style.display = 'none');
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  document.getElementById('page-' + name).style.display = '';
+  document.getElementById('page-' + name).style.display = 'block';
   event.currentTarget.classList.add('active');
   if (name === 'results' || name === 'compliance') populateScanDropdowns();
 }
 
-// ─── Dashboard ────────────────────────────────────────────────────────────────
 async function loadDashboard() {
   try {
+    const user = auth.currentUser;
+    if (!user) return;
+    
     const r = await apiFetch('/scans');
     scans = r.scans || [];
     if (!scans.length) return;
 
     const last = await apiFetch(`/scan/${scans[0].id}`);
-    const components = last.sbom?.artifacts?.length || 0;
-    const models = last.aibom?.model_count || 0;
-    const critical = last.vulnerabilities?.filter(v => v.severity?.toLowerCase() === 'critical').length || 0;
     document.getElementById('m-score').textContent = (last.compliance_score || 0) + '%';
-    document.getElementById('m-components').textContent = components;
-    document.getElementById('m-critical').textContent = critical;
-    document.getElementById('m-models').textContent = models;
+    document.getElementById('m-components').textContent = last.sbom?.artifacts?.length || 0;
+    document.getElementById('m-critical').textContent = last.vulnerabilities?.filter(v => v.severity?.toLowerCase() === 'critical').length || 0;
+    document.getElementById('m-models').textContent = last.aibom?.model_count || 0;
 
     document.getElementById('recent-scans').innerHTML = scans.slice(0,5).map(s => `
       <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px">
@@ -525,16 +485,15 @@ async function loadDashboard() {
       const partial = d.status?.includes('Partial');
       return `<div class="check-item">
         <div class="check-icon ${ok ? 'check-pass' : 'check-fail'}">${ok ? '✓' : '✕'}</div>
-        <div class="check-text">${regNames[k]} <span class="badge ${ok ? 'badge-ok' : partial ? 'badge-partial' : 'badge-fail'}" style="margin-left:8px">${d.status}</span></div>
+        <div class="check-text">${regNames[k]} <span class="badge ${ok ? 'badge-ok' : partial ? 'badge-partial' : 'badge-fail'}">${d.status}</span></div>
       </div>`;
     }).join('');
   } catch(e) { console.warn('Dashboard load error:', e); }
 }
 
-// ─── Scan ─────────────────────────────────────────────────────────────────────
 async function startScan() {
   const source = document.getElementById('scan-source').value.trim();
-  const zipFile = document.getElementById('scan-zip') && document.getElementById('scan-zip').files.length > 0 ? document.getElementById('scan-zip').files[0] : null;
+  const zipFile = document.getElementById('scan-zip')?.files[0];
   
   if (!source && !zipFile) {
     toast('Enter a GitHub URL or upload a ZIP file', 'error');
@@ -569,9 +528,7 @@ async function startScan() {
     toast(`Scan #${response.scan_id} complete!`, 'success');
     
     document.getElementById('scan-source').value = '';
-    if (document.getElementById('scan-zip')) {
-      document.getElementById('scan-zip').value = '';
-    }
+    if (document.getElementById('scan-zip')) document.getElementById('scan-zip').value = '';
     scans = [];
     loadDashboard();
   } catch(e) {
@@ -581,18 +538,16 @@ async function startScan() {
   }
 }
 
-// ─── Results ──────────────────────────────────────────────────────────────────
 async function populateScanDropdowns() {
   if (!scans.length) {
-    const r = await apiFetch('/scans').catch(()=>({scans:[]}));
-    scans = r.scans || [];
+    try { const r = await apiFetch('/scans'); scans = r.scans || []; } catch(e) { scans = []; }
   }
-  ['scan-select','comp-scan-select'].forEach(id => {
+  ['scan-select', 'comp-scan-select'].forEach(id => {
     const sel = document.getElementById(id);
     if (!sel) return;
     const existing = sel.value;
     sel.innerHTML = '<option value="">Select a scan…</option>' + scans.map(s => `<option value="${s.id}">#${s.id} — ${(s.source||'').split('/').pop()}</option>`).join('');
-    if (existing) sel.value = existing;
+    if (existing && scans.find(s => s.id == existing)) sel.value = existing;
   });
 }
 
@@ -600,127 +555,21 @@ async function loadScanResult() {
   const id = document.getElementById('scan-select').value;
   if (!id) return;
   const data = await apiFetch(`/scan/${id}`);
-  const vulns = data.vulnerabilities || [];
-  const comps = data.sbom?.artifacts || [];
-  const models = data.aibom?.models || [];
-  const score = data.compliance_score || 0;
-  const color = score >= 80 ? 'var(--accent)' : score >= 60 ? 'var(--warn)' : 'var(--danger)';
-
-  document.getElementById('results-content').innerHTML = `
-    <div class="grid-4" style="margin-bottom:20px">
-      <div class="card card-sm"><div class="metric-label">Compliance</div><div class="metric-value" style="color:${color}">${score}%</div></div>
-      <div class="card card-sm"><div class="metric-label">Components</div><div class="metric-value" style="color:var(--accent2)">${comps.length}</div></div>
-      <div class="card card-sm"><div class="metric-label">AI Models</div><div class="metric-value" style="color:var(--warn)">${models.length}</div></div>
-      <div class="card card-sm"><div class="metric-label">CVEs Found</div><div class="metric-value" style="color:var(--danger)">${vulns.length}</div></div>
-    </div>
-
-    <div class="tabs">
-      <div class="tab active" onclick="switchTab(this,'t-sbom')">SBOM (${comps.length})</div>
-      <div class="tab" onclick="switchTab(this,'t-aibom')">AIBOM (${models.length})</div>
-      <div class="tab" onclick="switchTab(this,'t-vulns')">Vulnerabilities (${vulns.length})</div>
-    </div>
-
-    <div id="t-sbom" class="card">
-      ${comps.length ? `
-      <div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap">
-        <input placeholder="Filter components…" oninput="filterTable(this,'sbom-table')" style="width:200px;padding:6px 10px;font-size:12px">
-      </div>
-      <table id="sbom-table"><thead><tr><th>Name</th><th>Version</th><th>Type</th></tr></thead>
-      <tbody>${comps.map(c=>`<tr><td style="font-family:var(--mono)">${c.name||'—'}</td><td style="font-family:var(--mono);color:var(--muted)">${c.version||'—'}</td><td><span class="tag">${c.type||'—'}</span></td></tr>`).join('')}</tbody></table>
-      ` : '<div class="empty">No components found in SBOM</div>'}
-    </div>
-
-    <div id="t-aibom" class="card" style="display:none">
-      ${models.length ? `
-      <table id="aibom-table"><thead><tr><th>Model</th><th>Format</th><th>Size</th><th>SHA256</th></tr></thead>
-      <tbody>${models.map(m=>`<tr><td style="font-family:var(--mono)">${m.name}</td><td><span class="tag">${m.format}</span></td><td style="color:var(--muted)">${(m.size_bytes/1024/1024).toFixed(2)} MB</td><td style="font-family:var(--mono);font-size:10px;color:var(--muted)">${(m.sha256||'').slice(0,16)}…</td></tr>`).join('')}</tbody></table>
-      ` : '<div class="empty">No AI model files detected in this repository</div>'}
-    </div>
-
-    <div id="t-vulns" class="card" style="display:none">
-      ${vulns.length ? `
-      <div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap">
-        <input placeholder="Filter CVEs…" oninput="filterTable(this,'vuln-table')" style="width:200px;padding:6px 10px;font-size:12px">
-        ${['CRITICAL','HIGH','MEDIUM','LOW'].map(s=>`<button class="btn btn-ghost btn-sm" onclick="filterBySeverityBtn(this,'${s}','vuln-table')">${s}</button>`).join('')}
-        <button class="btn btn-ghost btn-sm" onclick="clearFilter('vuln-table')">All</button>
-      </div>
-      <table id="vuln-table"><thead><tr><th>Component</th><th>CVE</th><th>Severity</th><th>Score</th><th>Description</th></tr></thead>
-      <tbody>${vulns.map(v=>`<tr>
-        <td style="font-family:var(--mono)">${v.component} ${v.version||''}</td>
-        <td style="font-family:var(--mono);color:var(--accent2)">${v.cve_id||'—'}</td>
-        <td><span class="badge badge-${(v.severity||'').toLowerCase()}">${v.severity||'UNKNOWN'}</span></td>
-        <td style="font-family:var(--mono);color:${v.cvss_score>=9?'var(--danger)':v.cvss_score>=7?'var(--warn)':'var(--muted)'}">${v.cvss_score||'—'}</td>
-        <td style="color:var(--muted);font-size:12px">${(v.description||'').slice(0,120)}${v.description?.length>120?'…':''}</td>
-      </tr>`).join('')}</tbody></table>
-      ` : '<div class="empty" style="color:var(--accent)">✓ No known vulnerabilities found</div>'}
-    </div>
-  `;
+  document.getElementById('results-content').innerHTML = `<pre style="background:var(--surface2);padding:20px;border-radius:8px;overflow:auto">${JSON.stringify(data, null, 2)}</pre>`;
 }
 
-function switchTab(el, targetId) {
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  el.classList.add('active');
-  ['t-sbom','t-aibom','t-vulns'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.style.display = id === targetId ? '' : 'none';
-  });
-}
-
-function filterTable(input, tableId) {
-  const q = input.value.toLowerCase();
-  document.querySelectorAll(`#${tableId} tbody tr`).forEach(r => {
-    r.style.display = r.textContent.toLowerCase().includes(q) ? '' : 'none';
-  });
-}
-
-function filterBySeverityBtn(btn, sev, tableId) {
-  document.querySelectorAll(`#${tableId} tbody tr`).forEach(r => {
-    r.style.display = r.textContent.includes(sev) ? '' : 'none';
-  });
-}
-function clearFilter(tableId) {
-  document.querySelectorAll(`#${tableId} tbody tr`).forEach(r => r.style.display = '');
-}
-
-// ─── Compliance ───────────────────────────────────────────────────────────────
 async function loadCompliance() {
   const id = document.getElementById('comp-scan-select').value;
   if (!id) return;
   const data = await apiFetch(`/scan/${id}/compliance`);
-  const regs = [
-    {key:'dpdpa', label:'DPDPA 2023'},
-    {key:'sebi',  label:'SEBI CSCRF'},
-    {key:'bis',   label:'BIS AI Quality Standards'},
-    {key:'rbi',   label:'RBI DPIP'},
-  ];
-  document.getElementById('compliance-content').innerHTML = regs.map(({key, label}) => {
-    const r = data[key]; if(!r) return '';
-    const color = r.status==='Compliant' ? 'var(--accent)' : r.status?.includes('Partial') ? 'var(--warn)' : 'var(--danger)';
-    return `<div class="card" style="margin-bottom:16px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-        <h2>${label}</h2>
-        <div style="display:flex;align-items:center;gap:12px">
-          <span style="font-family:var(--mono);font-size:24px;font-weight:700;color:${color}">${r.score_pct}%</span>
-          <span class="badge ${r.status==='Compliant'?'badge-ok':r.status?.includes('Partial')?'badge-partial':'badge-fail'}">${r.status}</span>
-        </div>
-      </div>
-      ${(r.checks||[]).map(c=>`<div class="check-item">
-        <div class="check-icon ${c.passed?'check-pass':'check-fail'}">${c.passed?'✓':'✕'}</div>
-        <div class="check-text">${c.item}${c.gap?`<div class="check-gap">⚠ ${c.gap}</div>`:''}
-        ${c.action&&!c.passed?`<div style="font-size:11px;color:var(--muted);margin-top:3px">→ ${c.action}</div>`:''}
-        </div>
-      </div>`).join('')}
-    </div>`;
-  }).join('');
+  document.getElementById('compliance-content').innerHTML = `<pre style="background:var(--surface2);padding:20px;border-radius:8px;overflow:auto">${JSON.stringify(data, null, 2)}</pre>`;
 }
 
-// ─── Shadow AI ────────────────────────────────────────────────────────────────
 function loadSampleLogs() {
   document.getElementById('shadow-logs').value = JSON.stringify([
-    {"dst_host":"api.openai.com","dst_path":"/v1/chat/completions","bytes_out":85000,"timestamp":"2025-01-15T09:12:00Z","request_body":"{\"model\":\"gpt-4\",\"messages\":[...]}"},
-    {"dst_host":"api.anthropic.com","dst_path":"/v1/messages","bytes_out":12000,"timestamp":"2025-01-15T10:05:00Z","request_body":"{\"model\":\"claude-3\"}"},
-    {"dst_host":"www.google.com","dst_path":"/","bytes_out":500,"timestamp":"2025-01-15T10:10:00Z"},
-    {"dst_host":"api.openai.com","dst_path":"/v1/embeddings","bytes_out":320000,"timestamp":"2025-01-15T11:00:00Z","request_body":"AAAA+BBBBB+CCC=="},
+    {"dst_host":"api.openai.com","dst_path":"/v1/chat/completions","bytes_out":85000,"timestamp":"2025-01-15T09:12:00Z"},
+    {"dst_host":"api.anthropic.com","dst_path":"/v1/messages","bytes_out":12000,"timestamp":"2025-01-15T10:05:00Z"},
+    {"dst_host":"api.openai.com","dst_path":"/v1/embeddings","bytes_out":320000,"timestamp":"2025-01-15T11:00:00Z"}
   ], null, 2);
 }
 
@@ -729,68 +578,45 @@ async function runShadowAI() {
   let logs;
   try { logs = JSON.parse(raw); } catch(e) { return toast('Invalid JSON', 'error'); }
   const data = await apiFetch('/detect-shadow-ai', 'POST', {logs});
-  const risk = data.risk_counts || {};
-  document.getElementById('shadow-results').innerHTML = `
-    <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
-      <div class="card card-sm" style="flex:1;min-width:80px"><div class="metric-label">Total</div><div class="metric-value" style="font-size:24px">${data.total_findings}</div></div>
-      <div class="card card-sm" style="flex:1;min-width:80px"><div class="metric-label">Critical</div><div class="metric-value" style="font-size:24px;color:var(--danger)">${risk.CRITICAL||0}</div></div>
-      <div class="card card-sm" style="flex:1;min-width:80px"><div class="metric-label">High</div><div class="metric-value" style="font-size:24px;color:var(--warn)">${risk.HIGH||0}</div></div>
-    </div>
-    ${(data.vendor_summary||[]).length ? `<div class="section-title" style="margin-bottom:8px">Detected Vendors</div>
-    ${data.vendor_summary.map(v=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">
-      <span style="font-family:var(--mono)">${v.vendor}</span>
-      <span style="color:var(--warn)">${v.estimated_mb} MB sent</span>
-    </div>`).join('')}` : ''}
-    ${(data.findings||[]).slice(0,10).map(f=>`<div style="padding:10px;margin-top:8px;background:var(--surface2);border-radius:6px;border-left:3px solid ${f.risk_level==='CRITICAL'?'var(--danger)':f.risk_level==='HIGH'?'var(--warn)':'var(--info)'}">
-      <div style="font-size:11px;font-family:var(--mono);color:var(--muted)">${f.type} · ${f.timestamp||''}</div>
-      <div style="font-size:13px;margin-top:4px">${f.reason}</div>
-    </div>`).join('')}
-  `;
+  document.getElementById('shadow-results').innerHTML = `<pre style="background:var(--surface2);padding:20px;border-radius:8px;overflow:auto">${JSON.stringify(data, null, 2)}</pre>`;
 }
 
-// ─── PDF Export ───────────────────────────────────────────────────────────────
 function exportPDF() {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
-  doc.setFontSize(18); doc.text('MythosShield — Scan Report', 14, 22);
-  doc.setFontSize(11); doc.setTextColor(100);
-  doc.text(`Generated: ${new Date().toISOString().slice(0,10)}`, 14, 30);
-  const content = document.getElementById('results-content').innerText;
-  doc.setFontSize(9); doc.setTextColor(40);
-  const lines = doc.splitTextToSize(content.slice(0,4000), 180);
-  doc.text(lines, 14, 40);
-  doc.save('mythosshield-scan-report.pdf');
+  doc.text('MythosShield Scan Report', 14, 20);
+  doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 30);
+  doc.save('mythosshield-report.pdf');
   toast('PDF downloaded', 'success');
 }
 
 function exportCompliancePDF() {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
-  doc.setFontSize(18); doc.text('MythosShield — Compliance Report', 14, 22);
-  doc.setFontSize(11); doc.setTextColor(100);
-  doc.text(`Generated: ${new Date().toISOString().slice(0,10)}  |  CERT-In / RBI / SEBI / BIS`, 14, 30);
-  const content = document.getElementById('compliance-content').innerText;
-  doc.setFontSize(9); doc.setTextColor(40);
-  doc.text(doc.splitTextToSize(content.slice(0,5000), 180), 14, 40);
-  doc.save('mythosshield-compliance-report.pdf');
-  toast('Compliance PDF downloaded', 'success');
+  doc.text('MythosShield Compliance Report', 14, 20);
+  doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 30);
+  doc.save('mythosshield-compliance.pdf');
+  toast('PDF downloaded', 'success');
 }
 
-// ─── Utilities ────────────────────────────────────────────────────────────────
 async function apiFetch(path, method = 'GET', body = null) {
-  const token = localStorage.getItem('ms_token');
-  const opts = { 
-    method, 
-    headers: { 
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    } 
-  };
+  const user = auth.currentUser;
+  if (!user) throw new Error('Not authenticated');
+  
+  const idToken = await user.getIdToken();
+  const opts = { method, headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` } };
   if (body) opts.body = JSON.stringify(body);
   const r = await fetch(API + path, opts);
   const d = await r.json();
   if (!r.ok) throw new Error(d.error || 'API error');
   return d;
+}
+
+function toast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast ${type} show`;
+  setTimeout(() => t.classList.remove('show'), 3000);
 }
 </script>
 </body>
