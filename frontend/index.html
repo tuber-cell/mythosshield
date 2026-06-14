@@ -95,6 +95,31 @@ input, select { width: 100%; padding: 10px 14px; background: var(--surface2); bo
 input[type="file"] { padding: 8px 10px; }
 input:focus, select:focus { border-color: var(--accent); }
 
+/* Password wrapper with eye icon */
+.password-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.password-wrapper input {
+  width: 100%;
+  padding-right: 45px;
+}
+.toggle-password {
+  position: absolute;
+  right: 12px;
+  cursor: pointer;
+  font-size: 18px;
+  user-select: none;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+.toggle-password:hover {
+  color: var(--accent);
+}
+
 .check-item { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
 .check-icon { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; }
 .check-pass { background: rgba(0,229,160,.2); color: var(--accent); }
@@ -147,7 +172,13 @@ input:focus, select:focus { border-color: var(--accent); }
 
     <div id="login-form">
       <div class="form-group"><label>Email</label><input type="email" id="login-email" placeholder="ciso@yourbank.in"></div>
-      <div class="form-group"><label>Password</label><input type="password" id="login-password" placeholder="••••••••"></div>
+      <div class="form-group">
+        <label>Password</label>
+        <div class="password-wrapper">
+          <input type="password" id="login-password" placeholder="••••••••">
+          <span class="toggle-password" onclick="togglePassword('login-password', this)">👁️</span>
+        </div>
+      </div>
       <button class="btn btn-primary" style="width:100%" onclick="doLogin()">Login</button>
     </div>
 
@@ -155,7 +186,13 @@ input:focus, select:focus { border-color: var(--accent); }
       <div class="form-group"><label>Bank Name</label><input type="text" id="reg-bank" placeholder="State Bank of India"></div>
       <div class="form-group"><label>Email</label><input type="email" id="reg-email" placeholder="ciso@yourbank.in"></div>
       <div class="form-group"><label>GST Number (optional)</label><input type="text" id="reg-gst" placeholder="22AAAAA0000A1Z5"></div>
-      <div class="form-group"><label>Password</label><input type="password" id="reg-password" placeholder="Min 6 characters"></div>
+      <div class="form-group">
+        <label>Password</label>
+        <div class="password-wrapper">
+          <input type="password" id="reg-password" placeholder="Min 6 characters">
+          <span class="toggle-password" onclick="togglePassword('reg-password', this)">👁️</span>
+        </div>
+      </div>
       <button class="btn btn-primary" style="width:100%" onclick="doRegister()">Create Account</button>
     </div>
   </div>
@@ -291,19 +328,29 @@ let token = localStorage.getItem('ms_token');
 let bankName = localStorage.getItem('ms_bank');
 let scans = [];
 
+// Toggle password visibility
+function togglePassword(inputId, eyeIcon) {
+  const input = document.getElementById(inputId);
+  if (input.type === 'password') {
+    input.type = 'text';
+    eyeIcon.textContent = '🙈';
+  } else {
+    input.type = 'password';
+    eyeIcon.textContent = '👁️';
+  }
+}
+
 // Check auth state on load
 auth.onAuthStateChanged((user) => {
   if (user && token) {
     showApp();
   } else if (user && !token) {
-    // User is logged into Firebase but token missing
     user.getIdToken().then(idToken => {
       token = idToken;
       localStorage.setItem('ms_token', token);
       showApp();
     });
   } else if (!user && token) {
-    // Token exists but no Firebase user
     localStorage.removeItem('ms_token');
     localStorage.removeItem('ms_bank');
     showAuth();
@@ -365,7 +412,6 @@ async function doLogin() {
     if (error.code === 'auth/user-not-found') message = 'Email not found';
     if (error.code === 'auth/wrong-password') message = 'Wrong password';
     if (error.code === 'auth/invalid-email') message = 'Invalid email';
-    if (error.code === 'auth/too-many-requests') message = 'Too many attempts. Try later';
     toast(message, 'error');
   } finally {
     btn.textContent = originalText;
@@ -400,7 +446,6 @@ async function doRegister() {
     
     const idToken = await userCredential.user.getIdToken();
     
-    // Try to save to backend (optional - don't fail if backend is down)
     try {
       await fetch(`${API}/auth/register`, {
         method: 'POST',
@@ -423,7 +468,6 @@ async function doRegister() {
     let message = 'Registration failed';
     if (error.code === 'auth/email-already-in-use') message = 'Email already registered';
     if (error.code === 'auth/weak-password') message = 'Password too weak (min 6 characters)';
-    if (error.code === 'auth/invalid-email') message = 'Invalid email address';
     toast(message, 'error');
   } finally {
     btn.textContent = originalText;
