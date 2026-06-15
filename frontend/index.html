@@ -507,32 +507,28 @@ async function loadDashboard() {
     
     const r = await apiFetch('/scans');
     scans = r.scans || [];
-    if (!scans.length) return;
+    
+    if (!scans.length) {
+      document.getElementById('recent-scans').innerHTML = '<div class="empty">No scans yet — run your first scan</div>';
+      return;
+    }
 
-    const last = await apiFetch(`/scan/${scans[0].id}`);
-    document.getElementById('m-score').textContent = (last.compliance_score || 0) + '%';
-    document.getElementById('m-components').textContent = last.sbom?.artifacts?.length || 0;
-    document.getElementById('m-critical').textContent = last.vulnerabilities?.filter(v => v.severity?.toLowerCase() === 'critical').length || 0;
-    document.getElementById('m-models').textContent = last.aibom?.model_count || 0;
-
+    // Just show recent scans, don't try to load details
     document.getElementById('recent-scans').innerHTML = scans.slice(0,5).map(s => `
       <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px">
-        <div style="font-family:var(--mono);color:var(--text)">#${s.id} ${s.source?.split('/').pop() || s.source}</div>
-        <div style="color:var(--muted)">${(s.created_at||'').slice(0,10)}</div>
+        <div style="font-family:var(--mono);color:var(--text)">#${s.id} ${s.source || 'Unknown'}</div>
+        <div style="color:var(--muted)">${(s.created_at || '').slice(0,10)}</div>
       </div>`).join('');
-
-    const comp = await apiFetch(`/scan/${scans[0].id}/compliance`);
-    const regNames = {dpdpa:'DPDPA 2023', sebi:'SEBI CSCRF', bis:'BIS AI Quality', rbi:'RBI DPIP'};
-    document.getElementById('reg-status').innerHTML = ['dpdpa','sebi','bis','rbi'].map(k => {
-      const d = comp[k]; if(!d) return '';
-      const ok = d.status === 'Compliant';
-      const partial = d.status?.includes('Partial');
-      return `<div class="check-item">
-        <div class="check-icon ${ok ? 'check-pass' : 'check-fail'}">${ok ? '✓' : '✕'}</div>
-        <div class="check-text">${regNames[k]} <span class="badge ${ok ? 'badge-ok' : partial ? 'badge-partial' : 'badge-fail'}">${d.status}</span></div>
-      </div>`;
-    }).join('');
-  } catch(e) { console.warn('Dashboard load error:', e); }
+    
+    document.getElementById('m-score').textContent = '—';
+    document.getElementById('m-components').textContent = '—';
+    document.getElementById('m-critical').textContent = '—';
+    document.getElementById('m-models').textContent = '—';
+    
+  } catch(e) { 
+    console.warn('Dashboard load error:', e);
+    document.getElementById('recent-scans').innerHTML = '<div class="empty">No scans yet — run your first scan</div>';
+  }
 }
 
 async function startScan() {
@@ -545,7 +541,7 @@ async function startScan() {
   }
   
   document.getElementById('scan-btn-text').innerHTML = '<span class="loading"></span> Scanning…';
-  document.getElementById('scan-status').textContent = 'Step 1/2: Generating SBOM + AIBOM…';
+  document.getElementById('scan-status').textContent = 'Uploading and scanning...';
   
   try {
     let response;
@@ -564,10 +560,7 @@ async function startScan() {
       response = await apiFetch('/scan/sbom', 'POST', { source });
     }
     
-    document.getElementById('scan-status').textContent = 'Step 2/2: Checking vulnerabilities…';
-    await apiFetch('/scan/vulnerabilities', 'POST', { scan_id: response.scan_id });
-    
-    document.getElementById('scan-status').textContent = '';
+    document.getElementById('scan-status').textContent = 'Scan completed!';
     document.getElementById('scan-btn-text').textContent = 'Run Scan';
     toast(`Scan #${response.scan_id} complete!`, 'success');
     
@@ -575,6 +568,8 @@ async function startScan() {
     if (document.getElementById('scan-zip')) document.getElementById('scan-zip').value = '';
     scans = [];
     loadDashboard();
+    populateScanDropdowns();
+    
   } catch(e) {
     document.getElementById('scan-btn-text').textContent = 'Run Scan';
     document.getElementById('scan-status').textContent = '';
@@ -598,8 +593,39 @@ async function populateScanDropdowns() {
 async function loadScanResult() {
   const id = document.getElementById('scan-select').value;
   if (!id) return;
-  const data = await apiFetch(`/scan/${id}`);
-  document.getElementById('results-content').innerHTML = `<pre style="background:var(--surface2);padding:20px;border-radius:8px;overflow:auto">${JSON.stringify(data, null, 2)}</pre>`;
+  
+  try {
+    const data = await apiFetch(`/scan/${id}`);
+    
+    // Display the scan results nicely
+    let html = '<div class="card"><div class="section-title">SBOM Components</div>';
+    
+    if (data.sbom && data.sbom.artifacts && data.sbom.artifacts.length > 0) {
+      html += '<table><thead><tr><th>Component</th><th>Version</th><th>Type</th></tr></thead><tbody>';
+      data.sbom.artifacts.forEach(comp => {
+        html += `<tr><td>${comp.name}</td><td>${comp.version}</td><td>${comp.type}</td></tr>`;
+      });
+      html += '</tbody></table>';
+    } else {
+      html += '<div class="empty">No components found in SBOM</div>';
+    }
+    
+    if (data.aibom && data.aibom.models && data.aibom.models.length > 0) {
+      html += '<div class="section-title" style="margin-top:20px">AI Models Found</div>';
+      html += '<table><thead><tr><th>Model</th><th>Format</th><th>Size</th></tr></thead><tbody>';
+      data.aibom.models.forEach(model => {
+        html += `<tr><td>${model.name}</td><td>${model.format}</td><td>${(model.size_bytes / 1024).toFixed(2)} KB</td></tr>`;
+      });
+      html += '</tbody></table>';
+    }
+    
+    html += '</div>';
+    document.getElementById('results-content').innerHTML = html;
+    
+  } catch(e) {
+    console.error('Error loading scan:', e);
+    document.getElementById('results-content').innerHTML = '<div class="empty">Error loading scan results</div>';
+  }
 }
 
 async function loadCompliance() {
