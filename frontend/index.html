@@ -554,15 +554,21 @@ async function startScan() {
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData
       });
-      if (!r.ok) throw new Error(await r.text());
+      if (!r.ok) {
+        const errorText = await r.text();
+        throw new Error(errorText || 'Upload failed');
+      }
       response = await r.json();
     } else {
       response = await apiFetch('/scan/sbom', 'POST', { source });
     }
     
+    // ✅ REMOVED: The call to /scan/vulnerabilities (doesn't exist)
+    // Just complete the scan successfully
+    
     document.getElementById('scan-status').textContent = 'Scan completed!';
     document.getElementById('scan-btn-text').textContent = 'Run Scan';
-    toast(`Scan #${response.scan_id} complete!`, 'success');
+    toast(`Scan #${response.scan_id || 'completed'}!`, 'success');
     
     document.getElementById('scan-source').value = '';
     if (document.getElementById('scan-zip')) document.getElementById('scan-zip').value = '';
@@ -571,6 +577,7 @@ async function startScan() {
     populateScanDropdowns();
     
   } catch(e) {
+    console.error('Scan error:', e);
     document.getElementById('scan-btn-text').textContent = 'Run Scan';
     document.getElementById('scan-status').textContent = '';
     toast('Scan failed: ' + e.message, 'error');
