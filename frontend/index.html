@@ -510,20 +510,36 @@ async function loadDashboard() {
     
     if (!scans.length) {
       document.getElementById('recent-scans').innerHTML = '<div class="empty">No scans yet — run your first scan</div>';
+      document.getElementById('m-score').textContent = '—';
+      document.getElementById('m-components').textContent = '—';
+      document.getElementById('m-critical').textContent = '—';
+      document.getElementById('m-models').textContent = '—';
       return;
     }
 
-    // Just show recent scans, don't try to load details
+    // ✅ Show recent scans with proper formatting
     document.getElementById('recent-scans').innerHTML = scans.slice(0,5).map(s => `
       <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px">
         <div style="font-family:var(--mono);color:var(--text)">#${s.id} ${s.source || 'Unknown'}</div>
         <div style="color:var(--muted)">${(s.created_at || '').slice(0,10)}</div>
-      </div>`).join('');
+      </div>`).join(''));
     
-    document.getElementById('m-score').textContent = '—';
-    document.getElementById('m-components').textContent = '—';
-    document.getElementById('m-critical').textContent = '—';
-    document.getElementById('m-models').textContent = '—';
+    // ✅ Try to load details from the latest scan
+    if (scans.length > 0) {
+      try {
+        const last = await apiFetch(`/scan/${scans[0].id}`);
+        document.getElementById('m-score').textContent = (last.compliance_score || 0) + '%';
+        document.getElementById('m-components').textContent = last.sbom?.artifacts?.length || 0;
+        document.getElementById('m-critical').textContent = last.vulnerabilities?.filter(v => v.severity?.toLowerCase() === 'critical').length || 0;
+        document.getElementById('m-models').textContent = last.aibom?.model_count || 0;
+      } catch(e) {
+        console.warn('Could not load scan details:', e);
+        document.getElementById('m-score').textContent = '—';
+        document.getElementById('m-components').textContent = '—';
+        document.getElementById('m-critical').textContent = '—';
+        document.getElementById('m-models').textContent = '—';
+      }
+    }
     
   } catch(e) { 
     console.warn('Dashboard load error:', e);
@@ -535,8 +551,9 @@ async function startScan() {
   const source = document.getElementById('scan-source').value.trim();
   const zipFile = document.getElementById('scan-zip')?.files[0];
   
-  if (!source && !zipFile) {
-    toast('Enter a GitHub URL or upload a ZIP file', 'error');
+  // For now, only support ZIP upload (GitHub URL will come later)
+  if (!zipFile) {
+    toast('Please upload a ZIP file to scan', 'error');
     return;
   }
   
@@ -544,35 +561,38 @@ async function startScan() {
   document.getElementById('scan-status').textContent = 'Uploading and scanning...';
   
   try {
-    let response;
+    const formData = new FormData();
+    formData.append('file', zipFile);
     
-    if (zipFile) {
-      const formData = new FormData();
-      formData.append('file', zipFile);
-      const r = await fetch(`${API}/scan/upload`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
-        body: formData
-      });
-      if (!r.ok) {
-        const errorText = await r.text();
-        throw new Error(errorText || 'Upload failed');
-      }
-      response = await r.json();
-    } else {
-      response = await apiFetch('/scan/sbom', 'POST', { source });
+    const r = await fetch(`${API}/scan/upload`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: formData
+    });
+    
+    if (!r.ok) {
+      const errorText = await r.text();
+      throw new Error(errorText || 'Upload failed');
     }
     
-    // ✅ REMOVED: The call to /scan/vulnerabilities (doesn't exist)
-    // Just complete the scan successfully
+    const response = await r.json();
+    
+    // Add to scans array immediately
+    const newScan = {
+      id: response.scan_id,
+      source: zipFile.name,
+      created_at: new Date().toISOString()
+    };
+    scans.unshift(newScan);
     
     document.getElementById('scan-status').textContent = 'Scan completed!';
     document.getElementById('scan-btn-text').textContent = 'Run Scan';
-    toast(`Scan #${response.scan_id || 'completed'}!`, 'success');
+    toast(`Scan #${response.scan_id} complete!`, 'success');
     
     document.getElementById('scan-source').value = '';
-    if (document.getElementById('scan-zip')) document.getElementById('scan-zip').value = '';
-    scans = [];
+    document.getElementById('scan-zip').value = '';
+    
+    // Refresh dashboard and dropdowns
     loadDashboard();
     populateScanDropdowns();
     
@@ -584,15 +604,25 @@ async function startScan() {
   }
 }
 
+
 async function populateScanDropdowns() {
+  // ✅ Use the global scans array, don't refetch
   if (!scans.length) {
-    try { const r = await apiFetch('/scans'); scans = r.scans || []; } catch(e) { scans = []; }
+    try { 
+      const r = await apiFetch('/scans'); 
+      scans = r.scans || []; 
+    } catch(e) { 
+      scans = []; 
+    }
   }
+  
   ['scan-select', 'comp-scan-select'].forEach(id => {
     const sel = document.getElementById(id);
     if (!sel) return;
     const existing = sel.value;
-    sel.innerHTML = '<option value="">Select a scan…</option>' + scans.map(s => `<option value="${s.id}">#${s.id} — ${(s.source||'').split('/').pop()}</option>`).join('');
+    sel.innerHTML = '<option value="">Select a scan…</option>' + scans.map(s => 
+      `<option value="${s.id}">#${s.id} — ${(s.source || 'Unknown').split('/').pop()}</option>`
+    ).join('');
     if (existing && scans.find(s => s.id == existing)) sel.value = existing;
   });
 }
