@@ -644,11 +644,66 @@ function loadSampleLogs() {
 }
 
 async function runShadowAI() {
-  const raw = document.getElementById('shadow-logs').value;
+  const raw = document.getElementById('shadow-logs').value.trim();
+  
+  // Check if empty
+  if (!raw) {
+    toast('Please paste JSON logs to analyse', 'error');
+    return;
+  }
+  
+  // Parse JSON
   let logs;
-  try { logs = JSON.parse(raw); } catch(e) { return toast('Invalid JSON', 'error'); }
-  const data = await apiFetch('/detect-shadow-ai', 'POST', {logs});
-  document.getElementById('shadow-results').innerHTML = `<pre style="background:var(--surface2);padding:20px;border-radius:8px;overflow:auto">${JSON.stringify(data, null, 2)}</pre>`;
+  try {
+    logs = JSON.parse(raw);
+  } catch(e) {
+    toast('Invalid JSON format. Please check your logs.', 'error');
+    return;
+  }
+  
+  // Check if it's an array
+  if (!Array.isArray(logs)) {
+    toast('Logs must be a JSON array (starting with [ and ending with ])', 'error');
+    return;
+  }
+  
+  // Show loading state
+  const btn = event.target;
+  const originalText = btn.textContent;
+  btn.textContent = 'Analysing...';
+  btn.disabled = true;
+  
+  try {
+    const data = await apiFetch('/detect-shadow-ai', 'POST', {logs});
+    
+    // Display results nicely
+    const risk = data.risk_counts || {};
+    document.getElementById('shadow-results').innerHTML = `
+      <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+        <div class="card card-sm" style="flex:1;min-width:80px">
+          <div class="metric-label">Total</div>
+          <div class="metric-value" style="font-size:24px">${data.total_findings || 0}</div>
+        </div>
+        <div class="card card-sm" style="flex:1;min-width:80px">
+          <div class="metric-label">Critical</div>
+          <div class="metric-value" style="font-size:24px;color:var(--danger)">${risk.CRITICAL || 0}</div>
+        </div>
+        <div class="card card-sm" style="flex:1;min-width:80px">
+          <div class="metric-label">High</div>
+          <div class="metric-value" style="font-size:24px;color:var(--warn)">${risk.HIGH || 0}</div>
+        </div>
+      </div>
+      <pre style="background:var(--surface2);padding:20px;border-radius:8px;overflow:auto;font-size:12px;max-height:400px">${JSON.stringify(data, null, 2)}</pre>
+    `;
+    
+    toast('Analysis complete!', 'success');
+    
+  } catch(e) {
+    toast('Analysis failed: ' + e.message, 'error');
+  } finally {
+    btn.textContent = originalText;
+    btn.disabled = false;
+  }
 }
 
 function exportPDF() {
