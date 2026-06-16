@@ -208,6 +208,7 @@ input:focus, select:focus { border-color: var(--accent); }
       <div class="nav-item" onclick="showPage('results')"><div class="nav-dot"></div> Scan Results</div>
       <div class="nav-item" onclick="showPage('compliance')"><div class="nav-dot"></div> Compliance Reports</div>
       <div class="nav-item" onclick="showPage('shadow')"><div class="nav-dot"></div> Shadow AI</div>
+      <div class="nav-item" onclick="showPage('threats')"><div class="nav-dot"></div> Threat Sharing</div>
     </nav>
     <div class="sidebar-footer">
       <div id="sidebar-bank" style="margin-bottom:6px;color:var(--text);font-size:12px"></div>
@@ -305,6 +306,35 @@ input:focus, select:focus { border-color: var(--accent); }
         </div>
       </div>
     </div>
+
+    <div id="page-threats" style="display:none">
+      <h1>Threat Intelligence Sharing</h1>
+      <p class="page-sub">Anonymised peer-to-peer CVE/IOC sharing for RBI compliance</p>
+      <div class="grid-2">
+        <div class="card">
+          <div class="section-title">Publish Threat Report</div>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div class="form-group" style="margin-bottom:0">
+              <label>CVE ID / Threat Name</label>
+              <input type="text" id="threat-cve" placeholder="e.g. CVE-2023-32681">
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+              <label>Component / Vendor</label>
+              <input type="text" id="threat-component" placeholder="e.g. requests">
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+              <label>Technical Notes</label>
+              <textarea id="threat-notes" rows="4" style="width:100%;padding:10px 14px;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:14px;outline:none" placeholder="Observed behaviour, mitigation status, etc."></textarea>
+            </div>
+            <button class="btn btn-primary" style="margin-top:8px" onclick="publishThreat()">Share Anonymously</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="section-title">Community Threats Feed</div>
+          <div id="threats-feed-content"><div class="empty">Loading community feed...</div></div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -323,7 +353,9 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 
-const API = 'https://mythosshield-backend.onrender.com';
+const API = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:'
+  ? 'http://127.0.0.1:5000'
+  : 'https://mythosshield-backend.onrender.com';
 let token = localStorage.getItem('ms_token');
 let bankName = localStorage.getItem('ms_bank');
 let scans = [];
@@ -498,6 +530,7 @@ function showPage(name) {
   document.getElementById('page-' + name).style.display = 'block';
   event.currentTarget.classList.add('active');
   if (name === 'results' || name === 'compliance') populateScanDropdowns();
+  if (name === 'threats') loadThreatsFeed();
 }
 
 async function loadDashboard() {
@@ -627,16 +660,22 @@ async function populateScanDropdowns() {
   });
 }
 
+let globalScanDetails = null;
+let globalComplianceDetails = null;
+
 async function loadScanResult() {
   const id = document.getElementById('scan-select').value;
   if (!id) return;
   
   try {
     const data = await apiFetch(`/scan/${id}`);
+    globalScanDetails = data;
     
     // Display the scan results nicely
-    let html = '<div class="card"><div class="section-title">SBOM Components</div>';
+    let html = '<div style="display:flex;flex-direction:column;gap:20px">';
     
+    // SBOM
+    html += '<div class="card"><div class="section-title">SBOM Components</div>';
     if (data.sbom && data.sbom.artifacts && data.sbom.artifacts.length > 0) {
       html += '<table><thead><tr><th>Component</th><th>Version</th><th>Type</th></tr></thead><tbody>';
       data.sbom.artifacts.forEach(comp => {
@@ -646,15 +685,42 @@ async function loadScanResult() {
     } else {
       html += '<div class="empty">No components found in SBOM</div>';
     }
+    html += '</div>';
     
+    // AIBOM
     if (data.aibom && data.aibom.models && data.aibom.models.length > 0) {
-      html += '<div class="section-title" style="margin-top:20px">AI Models Found</div>';
+      html += '<div class="card"><div class="section-title">AI Models Found (AIBOM)</div>';
       html += '<table><thead><tr><th>Model</th><th>Format</th><th>Size</th></tr></thead><tbody>';
       data.aibom.models.forEach(model => {
         html += `<tr><td>${model.name}</td><td>${model.format}</td><td>${(model.size_bytes / 1024).toFixed(2)} KB</td></tr>`;
       });
-      html += '</tbody></table>';
+      html += '</tbody></table></div>';
     }
+    
+    // Vulnerabilities
+    html += '<div class="card"><div class="section-title">Vulnerabilities Detected</div>';
+    if (data.vulnerabilities && data.vulnerabilities.length > 0) {
+      html += '<table><thead><tr><th>CVE ID</th><th>Component</th><th>Severity</th><th>Threat Intelligence</th><th>Remediation</th></tr></thead><tbody>';
+      data.vulnerabilities.forEach(v => {
+        const sevClass = `badge badge-${(v.severity || 'low').toLowerCase()}`;
+        const peerReports = v.peer_reports || 0;
+        const peerBadge = peerReports > 0 
+          ? `<span class="badge badge-critical">⚠️ Confirmed by ${peerReports} peer${peerReports > 1 ? 's' : ''}</span>`
+          : `<span class="badge badge-low">No peer reports</span>`;
+        
+        html += `<tr>
+          <td><strong style="font-family:var(--mono)">${v.cve_id}</strong></td>
+          <td>${v.component} (v${v.version || 'N/A'})</td>
+          <td><span class="${sevClass}">${v.severity}</span></td>
+          <td>${peerBadge}</td>
+          <td style="font-size:12px;color:var(--muted)">${v.remediation || 'N/A'}</td>
+        </tr>`;
+      });
+      html += '</tbody></table>';
+    } else {
+      html += '<div class="empty">No vulnerabilities found</div>';
+    }
+    html += '</div>';
     
     html += '</div>';
     document.getElementById('results-content').innerHTML = html;
@@ -668,8 +734,62 @@ async function loadScanResult() {
 async function loadCompliance() {
   const id = document.getElementById('comp-scan-select').value;
   if (!id) return;
-  const data = await apiFetch(`/scan/${id}/compliance`);
-  document.getElementById('compliance-content').innerHTML = `<pre style="background:var(--surface2);padding:20px;border-radius:8px;overflow:auto">${JSON.stringify(data, null, 2)}</pre>`;
+  
+  try {
+    const data = await apiFetch(`/scan/${id}/compliance`);
+    globalComplianceDetails = data;
+    
+    let html = '<div style="display:flex;flex-direction:column;gap:24px">';
+    
+    for (const key in data) {
+      const report = data[key];
+      const statusClass = report.score_pct >= 80 ? 'badge-ok' : (report.score_pct >= 50 ? 'badge-high' : 'badge-critical');
+      
+      html += `
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+            <div>
+              <h3 style="margin:0;font-size:16px;font-family:var(--mono);color:var(--text)">${report.regulation}</h3>
+            </div>
+            <span class="badge ${statusClass}">${report.status} (${report.score_pct}%)</span>
+          </div>
+          
+          <div style="background:var(--surface2);height:6px;border-radius:3px;margin-bottom:20px;overflow:hidden">
+            <div style="background:var(--accent);height:100%;width:${report.score_pct}%"></div>
+          </div>
+          
+          <div class="section-title">Gap Analysis & Checks</div>
+          <div>
+      `;
+      
+      report.checks.forEach(check => {
+        const iconClass = check.passed ? 'check-pass' : 'check-fail';
+        const icon = check.passed ? '✓' : '✗';
+        html += `
+          <div class="check-item">
+            <div class="check-icon ${iconClass}">${icon}</div>
+            <div class="check-text">
+              <strong style="color:var(--text)">${check.item}</strong>
+              ${!check.passed && check.gap ? `<div class="check-gap">⚠️ Gap: ${check.gap}</div>` : ''}
+              ${!check.passed && check.action ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">💡 Action: ${check.action}</div>` : ''}
+            </div>
+          </div>
+        `;
+      });
+      
+      html += `
+          </div>
+        </div>
+      `;
+    }
+    
+    html += '</div>';
+    document.getElementById('compliance-content').innerHTML = html;
+    
+  } catch(e) {
+    console.error('Error loading compliance:', e);
+    document.getElementById('compliance-content').innerHTML = '<div class="empty">Error loading compliance reports</div>';
+  }
 }
 
 function loadSampleLogs() {
@@ -683,13 +803,11 @@ function loadSampleLogs() {
 async function runShadowAI() {
   const raw = document.getElementById('shadow-logs').value.trim();
   
-  // Check if empty
   if (!raw) {
     toast('Please paste JSON logs to analyse', 'error');
     return;
   }
   
-  // Parse JSON
   let logs;
   try {
     logs = JSON.parse(raw);
@@ -698,13 +816,11 @@ async function runShadowAI() {
     return;
   }
   
-  // Check if it's an array
   if (!Array.isArray(logs)) {
     toast('Logs must be a JSON array (starting with [ and ending with ])', 'error');
     return;
   }
   
-  // Show loading state
   const btn = event.target;
   const originalText = btn.textContent;
   btn.textContent = 'Analysing...';
@@ -713,7 +829,6 @@ async function runShadowAI() {
   try {
     const data = await apiFetch('/detect-shadow-ai', 'POST', {logs});
     
-    // Display results nicely
     const risk = data.risk_counts || {};
     document.getElementById('shadow-results').innerHTML = `
       <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
@@ -743,29 +858,243 @@ async function runShadowAI() {
   }
 }
 
+async function publishThreat() {
+  const cve_id = document.getElementById('threat-cve').value.trim();
+  const component = document.getElementById('threat-component').value.trim();
+  const notes = document.getElementById('threat-notes').value.trim();
+  
+  if (!cve_id || !component) {
+    toast('CVE ID and Component are required', 'error');
+    return;
+  }
+  
+  const btn = event.target;
+  const originalText = btn.textContent;
+  btn.textContent = 'Publishing...';
+  btn.disabled = true;
+  
+  try {
+    await apiFetch('/threats/publish', 'POST', { cve_id, component, notes });
+    toast('Threat report published successfully!', 'success');
+    
+    document.getElementById('threat-cve').value = '';
+    document.getElementById('threat-component').value = '';
+    document.getElementById('threat-notes').value = '';
+    
+    loadThreatsFeed();
+  } catch(e) {
+    toast('Failed to publish threat: ' + e.message, 'error');
+  } finally {
+    btn.textContent = originalText;
+    btn.disabled = false;
+  }
+}
+
+async function loadThreatsFeed() {
+  const feedDiv = document.getElementById('threats-feed-content');
+  if (!feedDiv) return;
+  
+  try {
+    const data = await apiFetch('/threats');
+    const threats = data.threats || [];
+    
+    if (threats.length === 0) {
+      feedDiv.innerHTML = '<div class="empty">No threats reported yet. Be the first to share!</div>';
+      return;
+    }
+    
+    let html = '<div style="display:flex;flex-direction:column;gap:12px">';
+    threats.forEach(t => {
+      html += `
+        <div class="check-item" style="border-bottom:1px solid var(--border);padding-bottom:12px">
+          <div class="check-text">
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+              <strong style="font-family:var(--mono);color:var(--accent)">${t.cve_id}</strong>
+              <span class="tag">${t.tenant_id}</span>
+            </div>
+            <div style="font-size:12px;color:var(--text);margin-bottom:4px">Component: <strong>${t.component}</strong></div>
+            ${t.notes ? `<div style="font-size:12px;color:var(--muted);background:var(--surface2);padding:8px;border-radius:4px;margin-top:4px">${t.notes}</div>` : ''}
+            <div style="font-size:10px;color:var(--muted);margin-top:6px;text-align:right">${new Date(t.published_at).toLocaleString()}</div>
+          </div>
+        </div>
+      `;
+    });
+    html += '</div>';
+    feedDiv.innerHTML = html;
+  } catch(e) {
+    feedDiv.innerHTML = '<div class="empty">Failed to load threats feed</div>';
+  }
+}
+
 function exportPDF() {
+  const id = document.getElementById('scan-select').value;
+  if (!id) {
+    toast('Please select a scan to export', 'error');
+    return;
+  }
+  
+  if (!globalScanDetails || globalScanDetails.id != id) {
+    toast('Please wait for scan details to load first', 'error');
+    return;
+  }
+  
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
+  const s = globalScanDetails;
+  
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(20);
   doc.text('MythosShield Scan Report', 14, 20);
-  doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 30);
-  doc.save('mythosshield-report.pdf');
+  
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.text(`Scan ID: #${s.id}`, 14, 28);
+  doc.text(`Source: ${s.source || 'Unknown'}`, 14, 34);
+  doc.text(`Generated: ${new Date(s.created_at).toLocaleString()}`, 14, 40);
+  doc.text(`Overall Compliance Score: ${s.compliance_score || 0}%`, 14, 46);
+  
+  let y = 56;
+  
+  if (s.sbom && s.sbom.artifacts && s.sbom.artifacts.length > 0) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.text('SBOM Components', 14, y);
+    y += 8;
+    
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    s.sbom.artifacts.slice(0, 25).forEach(comp => {
+      if (y > 280) { doc.addPage(); y = 20; }
+      doc.text(`- ${comp.name} (${comp.version}) [${comp.type}]`, 16, y);
+      y += 6;
+    });
+    if (s.sbom.artifacts.length > 25) {
+      doc.text(`... and ${s.sbom.artifacts.length - 25} more components.`, 16, y);
+      y += 6;
+    }
+    y += 4;
+  }
+  
+  if (s.aibom && s.aibom.models && s.aibom.models.length > 0) {
+    if (y > 250) { doc.addPage(); y = 20; }
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.text('AI Models Inventory (AIBOM)', 14, y);
+    y += 8;
+    
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    s.aibom.models.forEach(model => {
+      if (y > 280) { doc.addPage(); y = 20; }
+      doc.text(`- ${model.name} (${model.format}, ${(model.size_bytes / 1024).toFixed(2)} KB)`, 16, y);
+      y += 6;
+    });
+    y += 4;
+  }
+
+  if (s.vulnerabilities && s.vulnerabilities.length > 0) {
+    if (y > 250) { doc.addPage(); y = 20; }
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.text('Vulnerabilities Detected', 14, y);
+    y += 8;
+    
+    s.vulnerabilities.forEach(v => {
+      if (y > 260) { doc.addPage(); y = 20; }
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      const peerReports = v.peer_reports || 0;
+      const peerStr = peerReports > 0 ? ` (Confirmed by ${peerReports} peers)` : '';
+      doc.text(`${v.cve_id} - ${v.component} (${v.severity})${peerStr}`, 16, y);
+      y += 5;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.text(`Desc: ${v.description || 'N/A'}`, 18, y, { maxWidth: 170 });
+      y += 5;
+      doc.text(`Remediation: ${v.remediation || 'N/A'}`, 18, y, { maxWidth: 170 });
+      y += 8;
+    });
+  }
+  
+  doc.save(`mythosshield-scan-report-${id}.pdf`);
   toast('PDF downloaded', 'success');
 }
 
 function exportCompliancePDF() {
+  const id = document.getElementById('comp-scan-select').value;
+  if (!id) {
+    toast('Please select a scan to export', 'error');
+    return;
+  }
+  if (!globalComplianceDetails) {
+    toast('Please wait for compliance reports to load first', 'error');
+    return;
+  }
+  
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
+  const data = globalComplianceDetails;
+  
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(20);
   doc.text('MythosShield Compliance Report', 14, 20);
-  doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 30);
-  doc.save('mythosshield-compliance.pdf');
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.text(`Scan ID: #${id}`, 14, 28);
+  doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 34);
+  
+  let y = 46;
+  for (const key in data) {
+    const report = data[key];
+    if (y > 250) { doc.addPage(); y = 20; }
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.text(`${report.regulation} - Status: ${report.status} (${report.score_pct}%)`, 14, y);
+    y += 8;
+    
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    report.checks.forEach(check => {
+      if (y > 270) { doc.addPage(); y = 20; }
+      const status = check.passed ? '[PASS]' : '[FAIL]';
+      doc.text(`${status} ${check.item}`, 16, y);
+      y += 6;
+      if (!check.passed) {
+        doc.setFont("helvetica", "italic");
+        doc.setFontSize(9);
+        if (check.gap) {
+          doc.text(`  Gap: ${check.gap}`, 16, y, { maxWidth: 170 });
+          y += 5;
+        }
+        if (check.action) {
+          doc.text(`  Action: ${check.action}`, 16, y, { maxWidth: 170 });
+          y += 5;
+        }
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        y += 2;
+      }
+    });
+    y += 6;
+  }
+  
+  doc.save(`mythosshield-compliance-${id}.pdf`);
   toast('PDF downloaded', 'success');
 }
 
 async function apiFetch(path, method = 'GET', body = null) {
   const user = auth.currentUser;
-  if (!user) throw new Error('Not authenticated');
   
-  const idToken = await user.getIdToken();
+  // Set mock headers if no user is logged in (to enable demo mode)
+  let idToken = "demo-token";
+  if (user) {
+    try {
+      idToken = await user.getIdToken();
+    } catch(err) {
+      console.warn("Could not get Firebase token, using mock fallback token");
+    }
+  }
+  
   const opts = { method, headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` } };
   if (body) opts.body = JSON.stringify(body);
   const r = await fetch(API + path, opts);
