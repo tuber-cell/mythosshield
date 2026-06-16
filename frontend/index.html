@@ -390,7 +390,7 @@ async function doLogin() {
     return;
   }
   
-  const btn = event.target;
+  const btn = document.querySelector('#login-form .btn-primary');
   const originalText = btn.textContent;
   btn.textContent = 'Logging in...';
   btn.disabled = true;
