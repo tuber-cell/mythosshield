@@ -6,31 +6,19 @@
 <title>MythosShield — Cybersecurity Compliance for Indian Banks</title>
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-
 <style>
 :root {
-  --bg: #0a0c10;
-  --surface: #11141c;
-  --surface2: #181c27;
-  --border: #1e2433;
-  --border2: #2a3147;
-  --accent: #00e5a0;
-  --accent2: #0066ff;
-  --danger: #ff4757;
-  --warn: #ffa502;
-  --info: #2ed573;
-  --text: #e8ecf4;
-  --muted: #6b7494;
-  --mono: 'Space Mono', monospace;
-  --sans: 'IBM Plex Sans', sans-serif;
+  --bg: #0a0c10; --surface: #11141c; --surface2: #181c27;
+  --border: #1e2433; --border2: #2a3147; --accent: #00e5a0;
+  --accent2: #0066ff; --danger: #ff4757; --warn: #ffa502;
+  --info: #2ed573; --text: #e8ecf4; --muted: #6b7494;
+  --mono: 'Space Mono', monospace; --sans: 'IBM Plex Sans', sans-serif;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; }
-
 #app { display: flex; min-height: 100vh; }
 #sidebar {
   width: 220px; min-height: 100vh; background: var(--surface);
@@ -38,14 +26,12 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); min-
   padding: 0; position: fixed; top: 0; left: 0; bottom: 0; z-index: 10;
 }
 #main { margin-left: 220px; flex: 1; padding: 32px 36px; }
-
 .logo {
   padding: 24px 20px 20px; border-bottom: 1px solid var(--border);
   font-family: var(--mono); font-size: 13px; font-weight: 700;
   color: var(--accent); letter-spacing: 0.05em;
 }
 .logo span { color: var(--muted); font-weight: 400; display: block; font-size: 10px; margin-top: 2px; }
-
 nav { padding: 12px 0; flex: 1; }
 .nav-item {
   display: flex; align-items: center; gap: 10px;
@@ -55,9 +41,7 @@ nav { padding: 12px 0; flex: 1; }
 .nav-item:hover { color: var(--text); background: var(--surface2); }
 .nav-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(0,229,160,.06); }
 .nav-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-
 .sidebar-footer { padding: 16px 20px; border-top: 1px solid var(--border); font-size: 11px; color: var(--muted); }
-
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 24px; }
 .card-sm { padding: 16px 20px; }
 .grid-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; margin-bottom: 24px; }
@@ -65,78 +49,55 @@ nav { padding: 12px 0; flex: 1; }
 .metric-label { font-size: 11px; text-transform: uppercase; color: var(--muted); font-family: var(--mono); }
 .metric-value { font-size: 36px; font-weight: 700; font-family: var(--mono); margin-top: 6px; }
 .metric-sub { font-size: 12px; color: var(--muted); margin-top: 6px; }
-
 .btn {
   display: inline-flex; align-items: center; gap: 8px;
   padding: 9px 18px; border-radius: 6px; font-size: 13px;
-  font-family: var(--mono); font-weight: 700; cursor: pointer;
-  border: none;
+  font-family: var(--mono); font-weight: 700; cursor: pointer; border: none;
 }
 .btn-primary { background: var(--accent); color: #000; }
 .btn-primary:hover { background: #00c98a; }
 .btn-ghost { background: transparent; color: var(--text); border: 1px solid var(--border2); }
 .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
 .btn-sm { padding: 6px 12px; font-size: 11px; }
-
 .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-family: var(--mono); font-weight: 700; }
 .badge-critical { background: rgba(255,71,87,.2); color: var(--danger); }
 .badge-high { background: rgba(255,165,2,.15); color: var(--warn); }
 .badge-medium { background: rgba(255,215,0,.12); color: #ffd700; }
 .badge-low { background: rgba(46,213,115,.12); color: var(--info); }
 .badge-ok { background: rgba(0,229,160,.12); color: var(--accent); }
-
 .section-title { font-family: var(--mono); font-size: 11px; text-transform: uppercase; color: var(--muted); margin-bottom: 16px; }
 h1 { font-size: 22px; font-weight: 600; margin-bottom: 4px; }
 .page-sub { color: var(--muted); font-size: 13px; margin-bottom: 28px; }
-
 .form-group { margin-bottom: 18px; }
 label { display: block; font-size: 12px; font-family: var(--mono); color: var(--muted); margin-bottom: 6px; text-transform: uppercase; }
-input, select { width: 100%; padding: 10px 14px; background: var(--surface2); border: 1px solid var(--border2); border-radius: 6px; color: var(--text); font-size: 14px; outline: none; }
+input, select, textarea {
+  width: 100%; padding: 10px 14px; background: var(--surface2);
+  border: 1px solid var(--border2); border-radius: 6px;
+  color: var(--text); font-size: 14px; outline: none;
+}
 input[type="file"] { padding: 8px 10px; }
-input:focus, select:focus { border-color: var(--accent); }
-
-/* Password wrapper with eye icon */
-.password-wrapper {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-.password-wrapper input {
-  width: 100%;
-  padding-right: 45px;
-}
+input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+.password-wrapper { position: relative; display: flex; align-items: center; }
+.password-wrapper input { width: 100%; padding-right: 45px; }
 .toggle-password {
-  position: absolute;
-  right: 12px;
-  cursor: pointer;
-  font-size: 18px;
-  user-select: none;
-  color: var(--muted);
-  background: transparent;
-  border: none;
-  padding: 0;
+  position: absolute; right: 12px; cursor: pointer; font-size: 18px;
+  user-select: none; color: var(--muted); background: transparent; border: none; padding: 0;
 }
-.toggle-password:hover {
-  color: var(--accent);
-}
-
+.toggle-password:hover { color: var(--accent); }
 .check-item { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
 .check-icon { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; }
 .check-pass { background: rgba(0,229,160,.2); color: var(--accent); }
 .check-fail { background: rgba(255,71,87,.2); color: var(--danger); }
 .check-text { font-size: 13px; flex: 1; }
 .check-gap { font-size: 12px; color: var(--warn); margin-top: 4px; }
-
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
 .tab { padding: 10px 16px; font-size: 13px; font-family: var(--mono); color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; }
 .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-
 .divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
 .tag { font-size: 11px; padding: 2px 8px; background: var(--surface2); border: 1px solid var(--border2); border-radius: 4px; color: var(--muted); }
 .empty { text-align: center; padding: 40px; color: var(--muted); }
 .loading { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border2); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
-
 .toast {
   position: fixed; bottom: 24px; right: 24px; padding: 12px 20px;
   border-radius: 8px; font-size: 13px; font-family: var(--mono);
@@ -146,7 +107,6 @@ input:focus, select:focus { border-color: var(--accent); }
 .toast.show { opacity: 1; }
 .toast.success { border-color: var(--accent); color: var(--accent); }
 .toast.error { border-color: var(--danger); color: var(--danger); }
-
 #auth-page { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
 .auth-box { width: 380px; }
 .auth-logo { font-family: var(--mono); font-size: 22px; font-weight: 700; color: var(--accent); margin-bottom: 6px; }
@@ -154,6 +114,9 @@ input:focus, select:focus { border-color: var(--accent); }
 .auth-tabs { display: flex; margin-bottom: 24px; border: 1px solid var(--border2); border-radius: 6px; overflow: hidden; }
 .auth-tab { flex: 1; padding: 9px; text-align: center; font-family: var(--mono); font-size: 12px; cursor: pointer; color: var(--muted); }
 .auth-tab.active { background: var(--accent); color: #000; font-weight: 700; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; padding: 8px 12px; font-family: var(--mono); font-size: 11px; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--border); }
+td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--text); }
 </style>
 </head>
 <body>
@@ -169,19 +132,17 @@ input:focus, select:focus { border-color: var(--accent); }
       <div class="auth-tab active" onclick="switchAuthTab('login')">Login</div>
       <div class="auth-tab" onclick="switchAuthTab('register')">Register</div>
     </div>
-
     <div id="login-form">
       <div class="form-group"><label>Email</label><input type="email" id="login-email" placeholder="ciso@yourbank.in"></div>
       <div class="form-group">
         <label>Password</label>
         <div class="password-wrapper">
           <input type="password" id="login-password" placeholder="••••••••">
-          <span class="toggle-password" onclick="togglePassword('login-password', this)">👁️</span>
+          <button class="toggle-password" onclick="togglePassword('login-password', this)">👁️</button>
         </div>
       </div>
       <button class="btn btn-primary" style="width:100%" onclick="doLogin()">Login</button>
     </div>
-
     <div id="register-form" style="display:none">
       <div class="form-group"><label>Bank Name</label><input type="text" id="reg-bank" placeholder="State Bank of India"></div>
       <div class="form-group"><label>Email</label><input type="email" id="reg-email" placeholder="ciso@yourbank.in"></div>
@@ -190,7 +151,7 @@ input:focus, select:focus { border-color: var(--accent); }
         <label>Password</label>
         <div class="password-wrapper">
           <input type="password" id="reg-password" placeholder="Min 6 characters">
-          <span class="toggle-password" onclick="togglePassword('reg-password', this)">👁️</span>
+          <button class="toggle-password" onclick="togglePassword('reg-password', this)">👁️</button>
         </div>
       </div>
       <button class="btn btn-primary" style="width:100%" onclick="doRegister()">Create Account</button>
@@ -297,8 +258,10 @@ input:focus, select:focus { border-color: var(--accent); }
         <div class="card">
           <div class="section-title">Upload Log Data (JSON)</div>
           <textarea id="shadow-logs" rows="8" placeholder='[{"dst_host":"api.openai.com","bytes_out":120000}]'></textarea>
-          <div style="margin-top:12px"><button class="btn btn-primary" onclick="runShadowAI()">Analyse Logs</button>
-          <button class="btn btn-ghost btn-sm" onclick="loadSampleLogs()">Load Sample</button></div>
+          <div style="margin-top:12px">
+            <button class="btn btn-primary" onclick="runShadowAI()">Analyse Logs</button>
+            <button class="btn btn-ghost btn-sm" onclick="loadSampleLogs()">Load Sample</button>
+          </div>
         </div>
         <div class="card">
           <div class="section-title">Detection Results</div>
@@ -324,7 +287,7 @@ input:focus, select:focus { border-color: var(--accent); }
             </div>
             <div class="form-group" style="margin-bottom:0">
               <label>Technical Notes</label>
-              <textarea id="threat-notes" rows="4" style="width:100%;padding:10px 14px;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:14px;outline:none" placeholder="Observed behaviour, mitigation status, etc."></textarea>
+              <textarea id="threat-notes" rows="4" placeholder="Observed behaviour, mitigation status, etc."></textarea>
             </div>
             <button class="btn btn-primary" style="margin-top:8px" onclick="publishThreat()">Share Anonymously</button>
           </div>
@@ -339,7 +302,6 @@ input:focus, select:focus { border-color: var(--accent); }
 </div>
 
 <script>
-// Firebase Configuration
 const firebaseConfig = {
   apiKey: "AIzaSyD8UhkcBvLWejRBvC0Hl6CF5TeOLwJIu1A",
   authDomain: "control-phone-fe93e.firebaseapp.com",
@@ -349,7 +311,6 @@ const firebaseConfig = {
   appId: "1:1078261179870:web:2f6c1f5f16df667c7c694f"
 };
 
-// Initialize Firebase or mock if offline/not loaded
 let auth;
 let firebaseInitialized = false;
 
@@ -358,110 +319,59 @@ if (typeof firebase !== 'undefined') {
     firebase.initializeApp(firebaseConfig);
     auth = firebase.auth();
     firebaseInitialized = true;
-  } catch(e) {
-    console.warn("Firebase initialization failed:", e);
-  }
+  } catch(e) { console.warn("Firebase init failed:", e); }
 }
 
 if (!firebaseInitialized) {
-  console.warn("Firebase SDK not loaded. Running in Local Mock Auth Mode.");
   auth = {
     currentUser: null,
     onAuthStateChanged: function(callback) {
       setTimeout(() => {
         const storedToken = localStorage.getItem('ms_token');
         if (storedToken) {
-          this.currentUser = {
-            uid: 'demo-id',
-            displayName: localStorage.getItem('ms_bank') || 'Demo Bank Ltd',
-            email: 'demo@mythosshield.in',
-            getIdToken: async () => 'demo-token',
-            updateProfile: async (profile) => {
-              if (profile.displayName) {
-                this.currentUser.displayName = profile.displayName;
-                localStorage.setItem('ms_bank', profile.displayName);
-              }
-            }
-          };
+          this.currentUser = { uid:'demo-id', displayName: localStorage.getItem('ms_bank')||'Demo Bank Ltd', email:'demo@mythosshield.in', getIdToken: async()=>'demo-token', updateProfile: async(p)=>{ if(p.displayName){this.currentUser.displayName=p.displayName;localStorage.setItem('ms_bank',p.displayName);} } };
           callback(this.currentUser);
-        } else {
-          callback(null);
-        }
+        } else { callback(null); }
       }, 50);
     },
     signInWithEmailAndPassword: async function(email, password) {
-      if (email === "demo@mythosshield.in" && password === "Demo@1234") {
-        this.currentUser = {
-          uid: 'demo-id',
-          displayName: 'Demo Bank Ltd',
-          email: email,
-          getIdToken: async () => 'demo-token',
-          updateProfile: async () => {}
-        };
+      if (email==="demo@mythosshield.in" && password==="Demo@1234") {
+        this.currentUser = { uid:'demo-id', displayName:'Demo Bank Ltd', email, getIdToken:async()=>'demo-token', updateProfile:async()=>{} };
         return { user: this.currentUser };
       }
-      throw { code: 'auth/wrong-password', message: 'Invalid credentials in mock mode.' };
+      throw { code:'auth/wrong-password', message:'Invalid credentials.' };
     },
     createUserWithEmailAndPassword: async function(email, password) {
-      this.currentUser = {
-        uid: 'demo-id',
-        displayName: email.split('@')[0],
-        email: email,
-        getIdToken: async () => 'demo-token',
-        updateProfile: async (profile) => {
-          if (profile.displayName) {
-            this.currentUser.displayName = profile.displayName;
-            localStorage.setItem('ms_bank', profile.displayName);
-          }
-        }
-      };
+      this.currentUser = { uid:'demo-id', displayName:email.split('@')[0], email, getIdToken:async()=>'demo-token', updateProfile:async(p)=>{ if(p.displayName){this.currentUser.displayName=p.displayName;localStorage.setItem('ms_bank',p.displayName);} } };
       return { user: this.currentUser };
     },
     signOut: async function() {
       this.currentUser = null;
       localStorage.removeItem('ms_token');
       localStorage.removeItem('ms_bank');
-      return Promise.resolve();
     }
   };
 }
 
-const API = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:'
+const API = (window.location.hostname==='localhost'||window.location.hostname==='127.0.0.1'||window.location.protocol==='file:')
   ? 'http://127.0.0.1:5000'
   : 'https://mythosshield-backend.onrender.com';
+
 let token = localStorage.getItem('ms_token');
 let bankName = localStorage.getItem('ms_bank');
 let scans = [];
 
-// Toggle password visibility
-function togglePassword(inputId, eyeIcon) {
+function togglePassword(inputId, btn) {
   const input = document.getElementById(inputId);
-  if (input.type === 'password') {
-    input.type = 'text';
-    eyeIcon.textContent = '🙈';
-  } else {
-    input.type = 'password';
-    eyeIcon.textContent = '👁️';
-  }
+  if (input.type === 'password') { input.type = 'text'; btn.textContent = '🙈'; }
+  else { input.type = 'password'; btn.textContent = '👁️'; }
 }
 
-// Check auth state on load
 auth.onAuthStateChanged((user) => {
-  if (user && token) {
-    showApp();
-  } else if (user && !token) {
-    user.getIdToken().then(idToken => {
-      token = idToken;
-      localStorage.setItem('ms_token', token);
-      showApp();
-    });
-  } else if (!user && token) {
-    localStorage.removeItem('ms_token');
-    localStorage.removeItem('ms_bank');
-    showAuth();
-  } else {
-    showAuth();
-  }
+  if (user && token) { showApp(); }
+  else if (user && !token) { user.getIdToken().then(t=>{ token=t; localStorage.setItem('ms_token',t); showApp(); }); }
+  else if (!user && token) { localStorage.removeItem('ms_token'); localStorage.removeItem('ms_bank'); showAuth(); }
+  else { showAuth(); }
 });
 
 function showAuth() {
@@ -480,62 +390,36 @@ function showApp() {
 }
 
 function switchAuthTab(tab) {
-  document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.auth-tab').forEach(t => {
-    if (t.textContent.toLowerCase() === tab.toLowerCase()) {
-      t.classList.add('active');
-    }
+    t.classList.toggle('active', t.textContent.toLowerCase() === tab);
   });
-  document.getElementById('login-form').style.display = tab === 'login' ? 'block' : 'none';
-  document.getElementById('register-form').style.display = tab === 'register' ? 'block' : 'none';
+  document.getElementById('login-form').style.display = tab==='login' ? 'block' : 'none';
+  document.getElementById('register-form').style.display = tab==='register' ? 'block' : 'none';
 }
 
 async function doLogin() {
   const email = document.getElementById('login-email').value;
   const password = document.getElementById('login-password').value;
-  
-  if (!email || !password) {
-    toast('Please enter email and password', 'error');
-    return;
-  }
-  
+  if (!email || !password) { toast('Please enter email and password', 'error'); return; }
   const btn = document.querySelector('#login-form .btn-primary');
-  const originalText = btn.textContent;
-  btn.textContent = 'Logging in...';
-  btn.disabled = true;
-  
+  btn.textContent = 'Logging in...'; btn.disabled = true;
   try {
-    const userCredential = await auth.signInWithEmailAndPassword(email, password);
-    const idToken = await userCredential.user.getIdToken();
-    
-    token = idToken;
-    bankName = userCredential.user.displayName || email.split('@')[0];
-    localStorage.setItem('ms_token', token);
-    localStorage.setItem('ms_bank', bankName);
-    
+    const uc = await auth.signInWithEmailAndPassword(email, password);
+    const idToken = await uc.user.getIdToken();
+    token = idToken; bankName = uc.user.displayName || email.split('@')[0];
+    localStorage.setItem('ms_token', token); localStorage.setItem('ms_bank', bankName);
     toast('✅ Login successful!', 'success');
     setTimeout(() => showApp(), 500);
-    
   } catch(error) {
-    // If it's the demo account or Firebase network request fails, log in with local demo credentials
-    if (email === "demo@mythosshield.in" || error.code === 'auth/network-request-failed' || error.code === 'auth/api-key-not-valid' || error.code === 'auth/configuration-not-found') {
-      token = "demo-token";
-      bankName = "Demo Bank Ltd";
-      localStorage.setItem('ms_token', token);
-      localStorage.setItem('ms_bank', bankName);
-      toast('✅ Login successful (Demo Fallback Mode)!', 'success');
-      setTimeout(() => showApp(), 500);
-      return;
+    if (['auth/network-request-failed','auth/api-key-not-valid','auth/configuration-not-found'].includes(error.code)) {
+      token = "demo-token"; bankName = "Demo Bank Ltd";
+      localStorage.setItem('ms_token', token); localStorage.setItem('ms_bank', bankName);
+      toast('✅ Login successful (Demo Mode)!', 'success');
+      setTimeout(() => showApp(), 500); return;
     }
-    let message = 'Login failed';
-    if (error.code === 'auth/user-not-found') message = 'Email not found';
-    if (error.code === 'auth/wrong-password') message = 'Wrong password';
-    if (error.code === 'auth/invalid-email') message = 'Invalid email';
-    toast(message, 'error');
-  } finally {
-    btn.textContent = originalText;
-    btn.disabled = false;
-  }
+    const msgs = { 'auth/user-not-found':'Email not found', 'auth/wrong-password':'Wrong password', 'auth/invalid-email':'Invalid email' };
+    toast(msgs[error.code] || 'Login failed', 'error');
+  } finally { btn.textContent = 'Login'; btn.disabled = false; }
 }
 
 async function doRegister() {
@@ -543,367 +427,166 @@ async function doRegister() {
   const email = document.getElementById('reg-email').value;
   const gst_number = document.getElementById('reg-gst').value;
   const password = document.getElementById('reg-password').value;
-  
-  if (!bank_name || !email || !password) {
-    toast('Please fill all required fields', 'error');
-    return;
-  }
-  
-  if (password.length < 6) {
-    toast('Password must be at least 6 characters', 'error');
-    return;
-  }
-  
+  if (!bank_name || !email || !password) { toast('Please fill all required fields', 'error'); return; }
+  if (password.length < 6) { toast('Password must be at least 6 characters', 'error'); return; }
   const btn = document.querySelector('#register-form .btn-primary');
-  const originalText = btn.textContent;
-  btn.textContent = 'Creating account...';
-  btn.disabled = true;
-  
+  btn.textContent = 'Creating account...'; btn.disabled = true;
   try {
-    const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-    await userCredential.user.updateProfile({ displayName: bank_name });
-    
-    const idToken = await userCredential.user.getIdToken();
-    
+    const uc = await auth.createUserWithEmailAndPassword(email, password);
+    await uc.user.updateProfile({ displayName: bank_name });
+    const idToken = await uc.user.getIdToken();
     try {
-      await fetch(`${API}/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
-        body: JSON.stringify({ bank_name, email, gst_number, firebase_uid: userCredential.user.uid })
-      });
-    } catch(backendError) {
-      console.warn('Backend save failed, but Firebase account created');
-    }
-    
-    toast('✅ Account created successfully! Please login.', 'success');
-    
-    document.getElementById('reg-bank').value = '';
-    document.getElementById('reg-email').value = '';
-    document.getElementById('reg-gst').value = '';
-    document.getElementById('reg-password').value = '';
+      await fetch(`${API}/auth/register`, { method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${idToken}`}, body:JSON.stringify({bank_name,email,gst_number,firebase_uid:uc.user.uid}) });
+    } catch(e) { console.warn('Backend save failed'); }
+    toast('✅ Account created! Please login.', 'success');
+    document.getElementById('reg-bank').value=''; document.getElementById('reg-email').value='';
+    document.getElementById('reg-gst').value=''; document.getElementById('reg-password').value='';
     switchAuthTab('login');
-    
   } catch(error) {
-    // Catch Firebase errors (e.g. offline/network blocked) and register locally
-    if (error.code === 'auth/network-request-failed' || error.code === 'auth/api-key-not-valid' || error.code === 'auth/configuration-not-found') {
-      token = "demo-token";
-      bankName = bank_name;
-      localStorage.setItem('ms_token', token);
-      localStorage.setItem('ms_bank', bankName);
-      
-      try {
-        await fetch(`${API}/auth/register`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer demo-token' },
-          body: JSON.stringify({ bank_name, email, gst_number, firebase_uid: 'demo-id' })
-        });
-      } catch(e) {
-        console.warn('Backend save failed in mock mode');
-      }
-      
-      toast('✅ Account created successfully (Demo Fallback Mode)!', 'success');
-      setTimeout(() => showApp(), 500);
-      return;
+    if (['auth/network-request-failed','auth/api-key-not-valid','auth/configuration-not-found'].includes(error.code)) {
+      token="demo-token"; bankName=bank_name;
+      localStorage.setItem('ms_token',token); localStorage.setItem('ms_bank',bankName);
+      toast('✅ Account created (Demo Mode)!', 'success');
+      setTimeout(()=>showApp(), 500); return;
     }
-    let message = 'Registration failed';
-    if (error.code === 'auth/email-already-in-use') message = 'Email already registered';
-    if (error.code === 'auth/weak-password') message = 'Password too weak (min 6 characters)';
-    toast(message, 'error');
-  } finally {
-    btn.textContent = originalText;
-    btn.disabled = false;
-  }
+    const msgs = { 'auth/email-already-in-use':'Email already registered', 'auth/weak-password':'Password too weak' };
+    toast(msgs[error.code] || 'Registration failed', 'error');
+  } finally { btn.textContent = 'Create Account'; btn.disabled = false; }
 }
 
 function logout() {
-  auth.signOut().then(() => {
-    token = null;
-    bankName = null;
-    localStorage.removeItem('ms_token');
-    localStorage.removeItem('ms_bank');
-    showAuth();
-    toast('Logged out successfully', 'success');
-  }).catch(() => {
-    token = null;
-    bankName = null;
-    localStorage.removeItem('ms_token');
-    localStorage.removeItem('ms_bank');
-    showAuth();
+  auth.signOut().finally(() => {
+    token=null; bankName=null;
+    localStorage.removeItem('ms_token'); localStorage.removeItem('ms_bank');
+    showAuth(); toast('Logged out', 'success');
   });
 }
 
 function showPage(name) {
-  document.querySelectorAll('[id^="page-"]').forEach(p => p.style.display = 'none');
+  document.querySelectorAll('[id^="page-"]').forEach(p => p.style.display='none');
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  document.getElementById('page-' + name).style.display = 'block';
-  
+  document.getElementById('page-'+name).style.display = 'block';
   document.querySelectorAll('.nav-item').forEach(n => {
-    if (n.getAttribute('onclick') && n.getAttribute('onclick').includes(`'${name}'`)) {
-      n.classList.add('active');
-    }
+    if (n.getAttribute('onclick')?.includes(`'${name}'`)) n.classList.add('active');
   });
-  
-  if (name === 'results' || name === 'compliance') populateScanDropdowns();
-  if (name === 'threats') loadThreatsFeed();
+  if (name==='results'||name==='compliance') populateScanDropdowns();
+  if (name==='threats') loadThreatsFeed();
 }
 
 async function loadDashboard() {
   try {
-    const user = auth.currentUser;
-    if (!user) return;
-    
     const r = await apiFetch('/scans');
     scans = r.scans || [];
-    
     if (!scans.length) {
       document.getElementById('recent-scans').innerHTML = '<div class="empty">No scans yet — run your first scan</div>';
-      document.getElementById('m-score').textContent = '—';
-      document.getElementById('m-components').textContent = '—';
-      document.getElementById('m-critical').textContent = '—';
-      document.getElementById('m-models').textContent = '—';
+      ['m-score','m-components','m-critical','m-models'].forEach(id => document.getElementById(id).textContent='—');
       return;
     }
-
-    // ✅ Show recent scans with proper formatting
+    // ✅ FIXED: was .join('')); — extra ) caused entire script to crash
     document.getElementById('recent-scans').innerHTML = scans.slice(0,5).map(s => `
       <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px">
-        <div style="font-family:var(--mono);color:var(--text)">#${s.id} ${s.source || 'Unknown'}</div>
-        <div style="color:var(--muted)">${(s.created_at || '').slice(0,10)}</div>
-      </div>`).join(''));
-    
-    // ✅ Try to load details from the latest scan
+        <div style="font-family:var(--mono);color:var(--text)">#${s.id} ${s.source||'Unknown'}</div>
+        <div style="color:var(--muted)">${(s.created_at||'').slice(0,10)}</div>
+      </div>`).join('');
     if (scans.length > 0) {
       try {
         const last = await apiFetch(`/scan/${scans[0].id}`);
-        document.getElementById('m-score').textContent = (last.compliance_score || 0) + '%';
-        document.getElementById('m-components').textContent = last.sbom?.artifacts?.length || 0;
-        document.getElementById('m-critical').textContent = last.vulnerabilities?.filter(v => v.severity?.toLowerCase() === 'critical').length || 0;
-        document.getElementById('m-models').textContent = last.aibom?.model_count || 0;
+        document.getElementById('m-score').textContent = (last.compliance_score||0)+'%';
+        document.getElementById('m-components').textContent = last.sbom?.artifacts?.length||0;
+        document.getElementById('m-critical').textContent = last.vulnerabilities?.filter(v=>v.severity?.toLowerCase()==='critical').length||0;
+        document.getElementById('m-models').textContent = last.aibom?.model_count||0;
       } catch(e) {
-        console.warn('Could not load scan details:', e);
-        document.getElementById('m-score').textContent = '—';
-        document.getElementById('m-components').textContent = '—';
-        document.getElementById('m-critical').textContent = '—';
-        document.getElementById('m-models').textContent = '—';
+        ['m-score','m-components','m-critical','m-models'].forEach(id => document.getElementById(id).textContent='—');
       }
     }
-    
-  } catch(e) { 
-    console.warn('Dashboard load error:', e);
+  } catch(e) {
     document.getElementById('recent-scans').innerHTML = '<div class="empty">No scans yet — run your first scan</div>';
   }
 }
 
 async function startScan() {
-  const source = document.getElementById('scan-source').value.trim();
   const zipFile = document.getElementById('scan-zip')?.files[0];
-  
-  // For now, only support ZIP upload (GitHub URL will come later)
-  if (!zipFile) {
-    toast('Please upload a ZIP file to scan', 'error');
-    return;
-  }
-  
+  if (!zipFile) { toast('Please upload a ZIP file to scan', 'error'); return; }
   document.getElementById('scan-btn-text').innerHTML = '<span class="loading"></span> Scanning…';
   document.getElementById('scan-status').textContent = 'Uploading and scanning...';
-  
   try {
     const formData = new FormData();
     formData.append('file', zipFile);
-    
-    const r = await fetch(`${API}/scan/upload`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}` },
-      body: formData
-    });
-    
-    if (!r.ok) {
-      const errorText = await r.text();
-      throw new Error(errorText || 'Upload failed');
-    }
-    
+    const r = await fetch(`${API}/scan/upload`, { method:'POST', headers:{'Authorization':`Bearer ${token}`}, body:formData });
+    if (!r.ok) throw new Error(await r.text()||'Upload failed');
     const response = await r.json();
-    
-    // Add to scans array immediately
-    const newScan = {
-      id: response.scan_id,
-      source: zipFile.name,
-      created_at: new Date().toISOString()
-    };
-    scans.unshift(newScan);
-    
+    scans.unshift({ id:response.scan_id, source:zipFile.name, created_at:new Date().toISOString() });
     document.getElementById('scan-status').textContent = 'Scan completed!';
-    document.getElementById('scan-btn-text').textContent = 'Run Scan';
     toast(`Scan #${response.scan_id} complete!`, 'success');
-    
-    document.getElementById('scan-source').value = '';
-    document.getElementById('scan-zip').value = '';
-    
-    // Refresh dashboard and dropdowns
-    loadDashboard();
-    populateScanDropdowns();
-    
+    document.getElementById('scan-source').value=''; document.getElementById('scan-zip').value='';
+    loadDashboard(); populateScanDropdowns();
   } catch(e) {
-    console.error('Scan error:', e);
-    document.getElementById('scan-btn-text').textContent = 'Run Scan';
-    document.getElementById('scan-status').textContent = '';
-    toast('Scan failed: ' + e.message, 'error');
-  }
+    toast('Scan failed: '+e.message, 'error');
+  } finally { document.getElementById('scan-btn-text').textContent = 'Run Scan'; }
 }
 
-
 async function populateScanDropdowns() {
-  // ✅ Use the global scans array, don't refetch
-  if (!scans.length) {
-    try { 
-      const r = await apiFetch('/scans'); 
-      scans = r.scans || []; 
-    } catch(e) { 
-      scans = []; 
-    }
-  }
-  
-  ['scan-select', 'comp-scan-select'].forEach(id => {
-    const sel = document.getElementById(id);
-    if (!sel) return;
+  if (!scans.length) { try { const r=await apiFetch('/scans'); scans=r.scans||[]; } catch(e){scans=[];} }
+  ['scan-select','comp-scan-select'].forEach(id => {
+    const sel = document.getElementById(id); if (!sel) return;
     const existing = sel.value;
-    sel.innerHTML = '<option value="">Select a scan…</option>' + scans.map(s => 
-      `<option value="${s.id}">#${s.id} — ${(s.source || 'Unknown').split('/').pop()}</option>`
-    ).join('');
-    if (existing && scans.find(s => s.id == existing)) sel.value = existing;
+    sel.innerHTML = '<option value="">Select a scan…</option>' + scans.map(s=>`<option value="${s.id}">#${s.id} — ${(s.source||'Unknown').split('/').pop()}</option>`).join('');
+    if (existing && scans.find(s=>s.id==existing)) sel.value=existing;
   });
 }
 
-let globalScanDetails = null;
-let globalComplianceDetails = null;
+let globalScanDetails=null, globalComplianceDetails=null;
 
 async function loadScanResult() {
-  const id = document.getElementById('scan-select').value;
-  if (!id) return;
-  
+  const id = document.getElementById('scan-select').value; if (!id) return;
   try {
     const data = await apiFetch(`/scan/${id}`);
     globalScanDetails = data;
-    
-    // Display the scan results nicely
     let html = '<div style="display:flex;flex-direction:column;gap:20px">';
-    
-    // SBOM
     html += '<div class="card"><div class="section-title">SBOM Components</div>';
-    if (data.sbom && data.sbom.artifacts && data.sbom.artifacts.length > 0) {
+    if (data.sbom?.artifacts?.length) {
       html += '<table><thead><tr><th>Component</th><th>Version</th><th>Type</th></tr></thead><tbody>';
-      data.sbom.artifacts.forEach(comp => {
-        html += `<tr><td>${comp.name}</td><td>${comp.version}</td><td>${comp.type}</td></tr>`;
-      });
+      data.sbom.artifacts.forEach(c => { html += `<tr><td>${c.name}</td><td>${c.version}</td><td>${c.type}</td></tr>`; });
       html += '</tbody></table>';
-    } else {
-      html += '<div class="empty">No components found in SBOM</div>';
-    }
+    } else { html += '<div class="empty">No components found</div>'; }
     html += '</div>';
-    
-    // AIBOM
-    if (data.aibom && data.aibom.models && data.aibom.models.length > 0) {
-      html += '<div class="card"><div class="section-title">AI Models Found (AIBOM)</div>';
-      html += '<table><thead><tr><th>Model</th><th>Format</th><th>Size</th></tr></thead><tbody>';
-      data.aibom.models.forEach(model => {
-        html += `<tr><td>${model.name}</td><td>${model.format}</td><td>${(model.size_bytes / 1024).toFixed(2)} KB</td></tr>`;
-      });
+    if (data.aibom?.models?.length) {
+      html += '<div class="card"><div class="section-title">AI Models (AIBOM)</div><table><thead><tr><th>Model</th><th>Format</th><th>Size</th></tr></thead><tbody>';
+      data.aibom.models.forEach(m => { html += `<tr><td>${m.name}</td><td>${m.format}</td><td>${(m.size_bytes/1024).toFixed(2)} KB</td></tr>`; });
       html += '</tbody></table></div>';
     }
-    
-    // Vulnerabilities
-    html += '<div class="card"><div class="section-title">Vulnerabilities Detected</div>';
-    if (data.vulnerabilities && data.vulnerabilities.length > 0) {
-      html += '<table><thead><tr><th>CVE ID</th><th>Component</th><th>Severity</th><th>Threat Intelligence</th><th>Remediation</th></tr></thead><tbody>';
+    html += '<div class="card"><div class="section-title">Vulnerabilities</div>';
+    if (data.vulnerabilities?.length) {
+      html += '<table><thead><tr><th>CVE ID</th><th>Component</th><th>Severity</th><th>Peer Intel</th><th>Remediation</th></tr></thead><tbody>';
       data.vulnerabilities.forEach(v => {
-        const sevClass = `badge badge-${(v.severity || 'low').toLowerCase()}`;
-        const peerReports = v.peer_reports || 0;
-        const peerBadge = peerReports > 0 
-          ? `<span class="badge badge-critical">⚠️ Confirmed by ${peerReports} peer${peerReports > 1 ? 's' : ''}</span>`
-          : `<span class="badge badge-low">No peer reports</span>`;
-        
-        html += `<tr>
-          <td><strong style="font-family:var(--mono)">${v.cve_id}</strong></td>
-          <td>${v.component} (v${v.version || 'N/A'})</td>
-          <td><span class="${sevClass}">${v.severity}</span></td>
-          <td>${peerBadge}</td>
-          <td style="font-size:12px;color:var(--muted)">${v.remediation || 'N/A'}</td>
-        </tr>`;
+        const pr=v.peer_reports||0;
+        html += `<tr><td><strong style="font-family:var(--mono)">${v.cve_id}</strong></td><td>${v.component} (v${v.version||'N/A'})</td><td><span class="badge badge-${(v.severity||'low').toLowerCase()}">${v.severity}</span></td><td>${pr>0?`<span class="badge badge-critical">⚠️ ${pr} peer${pr>1?'s':''}</span>`:'<span class="badge badge-low">None</span>'}</td><td style="font-size:12px;color:var(--muted)">${v.remediation||'N/A'}</td></tr>`;
       });
       html += '</tbody></table>';
-    } else {
-      html += '<div class="empty">No vulnerabilities found</div>';
-    }
-    html += '</div>';
-    
-    html += '</div>';
+    } else { html += '<div class="empty">No vulnerabilities found</div>'; }
+    html += '</div></div>';
     document.getElementById('results-content').innerHTML = html;
-    
-  } catch(e) {
-    console.error('Error loading scan:', e);
-    document.getElementById('results-content').innerHTML = '<div class="empty">Error loading scan results</div>';
-  }
+  } catch(e) { document.getElementById('results-content').innerHTML = '<div class="empty">Error loading scan results</div>'; }
 }
 
 async function loadCompliance() {
-  const id = document.getElementById('comp-scan-select').value;
-  if (!id) return;
-  
+  const id = document.getElementById('comp-scan-select').value; if (!id) return;
   try {
     const data = await apiFetch(`/scan/${id}/compliance`);
     globalComplianceDetails = data;
-    
     let html = '<div style="display:flex;flex-direction:column;gap:24px">';
-    
     for (const key in data) {
-      const report = data[key];
-      const statusClass = report.score_pct >= 80 ? 'badge-ok' : (report.score_pct >= 50 ? 'badge-high' : 'badge-critical');
-      
-      html += `
-        <div class="card">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-            <div>
-              <h3 style="margin:0;font-size:16px;font-family:var(--mono);color:var(--text)">${report.regulation}</h3>
-            </div>
-            <span class="badge ${statusClass}">${report.status} (${report.score_pct}%)</span>
-          </div>
-          
-          <div style="background:var(--surface2);height:6px;border-radius:3px;margin-bottom:20px;overflow:hidden">
-            <div style="background:var(--accent);height:100%;width:${report.score_pct}%"></div>
-          </div>
-          
-          <div class="section-title">Gap Analysis & Checks</div>
-          <div>
-      `;
-      
-      report.checks.forEach(check => {
-        const iconClass = check.passed ? 'check-pass' : 'check-fail';
-        const icon = check.passed ? '✓' : '✗';
-        html += `
-          <div class="check-item">
-            <div class="check-icon ${iconClass}">${icon}</div>
-            <div class="check-text">
-              <strong style="color:var(--text)">${check.item}</strong>
-              ${!check.passed && check.gap ? `<div class="check-gap">⚠️ Gap: ${check.gap}</div>` : ''}
-              ${!check.passed && check.action ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">💡 Action: ${check.action}</div>` : ''}
-            </div>
-          </div>
-        `;
+      const report=data[key];
+      const sc=report.score_pct>=80?'badge-ok':report.score_pct>=50?'badge-high':'badge-critical';
+      html += `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><h3 style="margin:0;font-size:16px;font-family:var(--mono)">${report.regulation}</h3><span class="badge ${sc}">${report.status} (${report.score_pct}%)</span></div><div style="background:var(--surface2);height:6px;border-radius:3px;margin-bottom:20px;overflow:hidden"><div style="background:var(--accent);height:100%;width:${report.score_pct}%"></div></div><div class="section-title">Gap Analysis</div><div>`;
+      report.checks.forEach(c => {
+        html += `<div class="check-item"><div class="check-icon ${c.passed?'check-pass':'check-fail'}">${c.passed?'✓':'✗'}</div><div class="check-text"><strong>${c.item}</strong>${!c.passed&&c.gap?`<div class="check-gap">⚠️ ${c.gap}</div>`:''}${!c.passed&&c.action?`<div style="font-size:11px;color:var(--muted);margin-top:2px">💡 ${c.action}</div>`:''}</div></div>`;
       });
-      
-      html += `
-          </div>
-        </div>
-      `;
+      html += '</div></div>';
     }
-    
     html += '</div>';
     document.getElementById('compliance-content').innerHTML = html;
-    
-  } catch(e) {
-    console.error('Error loading compliance:', e);
-    document.getElementById('compliance-content').innerHTML = '<div class="empty">Error loading compliance reports</div>';
-  }
+  } catch(e) { document.getElementById('compliance-content').innerHTML = '<div class="empty">Error loading compliance</div>'; }
 }
 
 function loadSampleLogs() {
@@ -916,312 +599,125 @@ function loadSampleLogs() {
 
 async function runShadowAI() {
   const raw = document.getElementById('shadow-logs').value.trim();
-  
-  if (!raw) {
-    toast('Please paste JSON logs to analyse', 'error');
-    return;
-  }
-  
-  let logs;
+  if (!raw) { toast('Please paste JSON logs', 'error'); return; }
+  let logs; try { logs=JSON.parse(raw); } catch(e) { toast('Invalid JSON', 'error'); return; }
+  if (!Array.isArray(logs)) { toast('Logs must be a JSON array', 'error'); return; }
+  const btn=document.querySelector('#page-shadow button.btn-primary');
+  btn.textContent='Analysing...'; btn.disabled=true;
   try {
-    logs = JSON.parse(raw);
-  } catch(e) {
-    toast('Invalid JSON format. Please check your logs.', 'error');
-    return;
-  }
-  
-  if (!Array.isArray(logs)) {
-    toast('Logs must be a JSON array (starting with [ and ending with ])', 'error');
-    return;
-  }
-  
-  const btn = document.querySelector('#page-shadow button.btn-primary');
-  const originalText = btn.textContent;
-  btn.textContent = 'Analysing...';
-  btn.disabled = true;
-  
-  try {
-    const data = await apiFetch('/detect-shadow-ai', 'POST', {logs});
-    
-    const risk = data.risk_counts || {};
+    const data = await apiFetch('/detect-shadow-ai','POST',{logs});
+    const risk=data.risk_counts||{};
     document.getElementById('shadow-results').innerHTML = `
       <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
-        <div class="card card-sm" style="flex:1;min-width:80px">
-          <div class="metric-label">Total</div>
-          <div class="metric-value" style="font-size:24px">${data.total_findings || 0}</div>
-        </div>
-        <div class="card card-sm" style="flex:1;min-width:80px">
-          <div class="metric-label">Critical</div>
-          <div class="metric-value" style="font-size:24px;color:var(--danger)">${risk.CRITICAL || 0}</div>
-        </div>
-        <div class="card card-sm" style="flex:1;min-width:80px">
-          <div class="metric-label">High</div>
-          <div class="metric-value" style="font-size:24px;color:var(--warn)">${risk.HIGH || 0}</div>
-        </div>
+        <div class="card card-sm" style="flex:1"><div class="metric-label">Total</div><div class="metric-value" style="font-size:24px">${data.total_findings||0}</div></div>
+        <div class="card card-sm" style="flex:1"><div class="metric-label">Critical</div><div class="metric-value" style="font-size:24px;color:var(--danger)">${risk.CRITICAL||0}</div></div>
+        <div class="card card-sm" style="flex:1"><div class="metric-label">High</div><div class="metric-value" style="font-size:24px;color:var(--warn)">${risk.HIGH||0}</div></div>
       </div>
-      <pre style="background:var(--surface2);padding:20px;border-radius:8px;overflow:auto;font-size:12px;max-height:400px">${JSON.stringify(data, null, 2)}</pre>
-    `;
-    
-    toast('Analysis complete!', 'success');
-    
-  } catch(e) {
-    toast('Analysis failed: ' + e.message, 'error');
-  } finally {
-    btn.textContent = originalText;
-    btn.disabled = false;
-  }
+      <pre style="background:var(--surface2);padding:20px;border-radius:8px;overflow:auto;font-size:12px;max-height:400px">${JSON.stringify(data,null,2)}</pre>`;
+    toast('Analysis complete!','success');
+  } catch(e) { toast('Analysis failed: '+e.message,'error'); }
+  finally { btn.textContent='Analyse Logs'; btn.disabled=false; }
 }
 
 async function publishThreat() {
-  const cve_id = document.getElementById('threat-cve').value.trim();
-  const component = document.getElementById('threat-component').value.trim();
-  const notes = document.getElementById('threat-notes').value.trim();
-  
-  if (!cve_id || !component) {
-    toast('CVE ID and Component are required', 'error');
-    return;
-  }
-  
-  const btn = document.querySelector('#page-threats button.btn-primary');
-  const originalText = btn.textContent;
-  btn.textContent = 'Publishing...';
-  btn.disabled = true;
-  
+  const cve_id=document.getElementById('threat-cve').value.trim();
+  const component=document.getElementById('threat-component').value.trim();
+  const notes=document.getElementById('threat-notes').value.trim();
+  if (!cve_id||!component) { toast('CVE ID and Component are required','error'); return; }
+  const btn=document.querySelector('#page-threats button.btn-primary');
+  btn.textContent='Publishing...'; btn.disabled=true;
   try {
-    await apiFetch('/threats/publish', 'POST', { cve_id, component, notes });
-    toast('Threat report published successfully!', 'success');
-    
-    document.getElementById('threat-cve').value = '';
-    document.getElementById('threat-component').value = '';
-    document.getElementById('threat-notes').value = '';
-    
+    await apiFetch('/threats/publish','POST',{cve_id,component,notes});
+    toast('Threat published!','success');
+    document.getElementById('threat-cve').value='';
+    document.getElementById('threat-component').value='';
+    document.getElementById('threat-notes').value='';
     loadThreatsFeed();
-  } catch(e) {
-    toast('Failed to publish threat: ' + e.message, 'error');
-  } finally {
-    btn.textContent = originalText;
-    btn.disabled = false;
-  }
+  } catch(e) { toast('Failed: '+e.message,'error'); }
+  finally { btn.textContent='Share Anonymously'; btn.disabled=false; }
 }
 
 async function loadThreatsFeed() {
-  const feedDiv = document.getElementById('threats-feed-content');
-  if (!feedDiv) return;
-  
+  const feedDiv=document.getElementById('threats-feed-content'); if (!feedDiv) return;
   try {
-    const data = await apiFetch('/threats');
-    const threats = data.threats || [];
-    
-    if (threats.length === 0) {
-      feedDiv.innerHTML = '<div class="empty">No threats reported yet. Be the first to share!</div>';
-      return;
-    }
-    
-    let html = '<div style="display:flex;flex-direction:column;gap:12px">';
-    threats.forEach(t => {
-      html += `
-        <div class="check-item" style="border-bottom:1px solid var(--border);padding-bottom:12px">
-          <div class="check-text">
-            <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-              <strong style="font-family:var(--mono);color:var(--accent)">${t.cve_id}</strong>
-              <span class="tag">${t.tenant_id}</span>
-            </div>
-            <div style="font-size:12px;color:var(--text);margin-bottom:4px">Component: <strong>${t.component}</strong></div>
-            ${t.notes ? `<div style="font-size:12px;color:var(--muted);background:var(--surface2);padding:8px;border-radius:4px;margin-top:4px">${t.notes}</div>` : ''}
-            <div style="font-size:10px;color:var(--muted);margin-top:6px;text-align:right">${new Date(t.published_at).toLocaleString()}</div>
+    const data=await apiFetch('/threats');
+    const threats=data.threats||[];
+    if (!threats.length) { feedDiv.innerHTML='<div class="empty">No threats reported yet.</div>'; return; }
+    feedDiv.innerHTML='<div style="display:flex;flex-direction:column;gap:12px">'+threats.map(t=>`
+      <div class="check-item" style="border-bottom:1px solid var(--border);padding-bottom:12px">
+        <div class="check-text">
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+            <strong style="font-family:var(--mono);color:var(--accent)">${t.cve_id}</strong>
+            <span class="tag">${t.tenant_id}</span>
           </div>
+          <div style="font-size:12px;margin-bottom:4px">Component: <strong>${t.component}</strong></div>
+          ${t.notes?`<div style="font-size:12px;color:var(--muted);background:var(--surface2);padding:8px;border-radius:4px;margin-top:4px">${t.notes}</div>`:''}
+          <div style="font-size:10px;color:var(--muted);margin-top:6px;text-align:right">${new Date(t.published_at).toLocaleString()}</div>
         </div>
-      `;
-    });
-    html += '</div>';
-    feedDiv.innerHTML = html;
-  } catch(e) {
-    feedDiv.innerHTML = '<div class="empty">Failed to load threats feed</div>';
-  }
+      </div>`).join('')+'</div>';
+  } catch(e) { feedDiv.innerHTML='<div class="empty">Failed to load feed</div>'; }
 }
 
 function exportPDF() {
-  const id = document.getElementById('scan-select').value;
-  if (!id) {
-    toast('Please select a scan to export', 'error');
-    return;
+  const id=document.getElementById('scan-select').value;
+  if (!id) { toast('Select a scan first','error'); return; }
+  if (!globalScanDetails) { toast('Load scan details first','error'); return; }
+  const {jsPDF}=window.jspdf; const doc=new jsPDF(); const s=globalScanDetails;
+  doc.setFont("helvetica","bold"); doc.setFontSize(20); doc.text('MythosShield Scan Report',14,20);
+  doc.setFont("helvetica","normal"); doc.setFontSize(10);
+  doc.text(`Scan ID: #${s.id}`,14,28); doc.text(`Source: ${s.source||'Unknown'}`,14,34);
+  doc.text(`Generated: ${new Date(s.created_at).toLocaleString()}`,14,40);
+  doc.text(`Compliance Score: ${s.compliance_score||0}%`,14,46);
+  let y=56;
+  if (s.sbom?.artifacts?.length) {
+    doc.setFont("helvetica","bold"); doc.setFontSize(14); doc.text('SBOM Components',14,y); y+=8;
+    doc.setFont("helvetica","normal"); doc.setFontSize(10);
+    s.sbom.artifacts.slice(0,25).forEach(c=>{ if(y>280){doc.addPage();y=20;} doc.text(`- ${c.name} (${c.version}) [${c.type}]`,16,y); y+=6; });
+    if (s.sbom.artifacts.length>25) { doc.text(`... and ${s.sbom.artifacts.length-25} more.`,16,y); y+=6; }
+    y+=4;
   }
-  
-  if (!globalScanDetails || globalScanDetails.id != id) {
-    toast('Please wait for scan details to load first', 'error');
-    return;
+  if (s.vulnerabilities?.length) {
+    if(y>250){doc.addPage();y=20;}
+    doc.setFont("helvetica","bold"); doc.setFontSize(14); doc.text('Vulnerabilities',14,y); y+=8;
+    s.vulnerabilities.forEach(v=>{ if(y>260){doc.addPage();y=20;} doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.text(`${v.cve_id} - ${v.component} (${v.severity})`,16,y); y+=5; doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(`Remediation: ${v.remediation||'N/A'}`,18,y,{maxWidth:170}); y+=8; });
   }
-  
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
-  const s = globalScanDetails;
-  
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(20);
-  doc.text('MythosShield Scan Report', 14, 20);
-  
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
-  doc.text(`Scan ID: #${s.id}`, 14, 28);
-  doc.text(`Source: ${s.source || 'Unknown'}`, 14, 34);
-  doc.text(`Generated: ${new Date(s.created_at).toLocaleString()}`, 14, 40);
-  doc.text(`Overall Compliance Score: ${s.compliance_score || 0}%`, 14, 46);
-  
-  let y = 56;
-  
-  if (s.sbom && s.sbom.artifacts && s.sbom.artifacts.length > 0) {
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(14);
-    doc.text('SBOM Components', 14, y);
-    y += 8;
-    
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    s.sbom.artifacts.slice(0, 25).forEach(comp => {
-      if (y > 280) { doc.addPage(); y = 20; }
-      doc.text(`- ${comp.name} (${comp.version}) [${comp.type}]`, 16, y);
-      y += 6;
-    });
-    if (s.sbom.artifacts.length > 25) {
-      doc.text(`... and ${s.sbom.artifacts.length - 25} more components.`, 16, y);
-      y += 6;
-    }
-    y += 4;
-  }
-  
-  if (s.aibom && s.aibom.models && s.aibom.models.length > 0) {
-    if (y > 250) { doc.addPage(); y = 20; }
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(14);
-    doc.text('AI Models Inventory (AIBOM)', 14, y);
-    y += 8;
-    
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    s.aibom.models.forEach(model => {
-      if (y > 280) { doc.addPage(); y = 20; }
-      doc.text(`- ${model.name} (${model.format}, ${(model.size_bytes / 1024).toFixed(2)} KB)`, 16, y);
-      y += 6;
-    });
-    y += 4;
-  }
-
-  if (s.vulnerabilities && s.vulnerabilities.length > 0) {
-    if (y > 250) { doc.addPage(); y = 20; }
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(14);
-    doc.text('Vulnerabilities Detected', 14, y);
-    y += 8;
-    
-    s.vulnerabilities.forEach(v => {
-      if (y > 260) { doc.addPage(); y = 20; }
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(10);
-      const peerReports = v.peer_reports || 0;
-      const peerStr = peerReports > 0 ? ` (Confirmed by ${peerReports} peers)` : '';
-      doc.text(`${v.cve_id} - ${v.component} (${v.severity})${peerStr}`, 16, y);
-      y += 5;
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(9);
-      doc.text(`Desc: ${v.description || 'N/A'}`, 18, y, { maxWidth: 170 });
-      y += 5;
-      doc.text(`Remediation: ${v.remediation || 'N/A'}`, 18, y, { maxWidth: 170 });
-      y += 8;
-    });
-  }
-  
-  doc.save(`mythosshield-scan-report-${id}.pdf`);
-  toast('PDF downloaded', 'success');
+  doc.save(`mythosshield-scan-${id}.pdf`); toast('PDF downloaded','success');
 }
 
 function exportCompliancePDF() {
-  const id = document.getElementById('comp-scan-select').value;
-  if (!id) {
-    toast('Please select a scan to export', 'error');
-    return;
-  }
-  if (!globalComplianceDetails) {
-    toast('Please wait for compliance reports to load first', 'error');
-    return;
-  }
-  
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
-  const data = globalComplianceDetails;
-  
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(20);
-  doc.text('MythosShield Compliance Report', 14, 20);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
-  doc.text(`Scan ID: #${id}`, 14, 28);
-  doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 34);
-  
-  let y = 46;
+  const id=document.getElementById('comp-scan-select').value;
+  if (!id) { toast('Select a scan first','error'); return; }
+  if (!globalComplianceDetails) { toast('Load compliance first','error'); return; }
+  const {jsPDF}=window.jspdf; const doc=new jsPDF(); const data=globalComplianceDetails;
+  doc.setFont("helvetica","bold"); doc.setFontSize(20); doc.text('MythosShield Compliance Report',14,20);
+  doc.setFont("helvetica","normal"); doc.setFontSize(10); doc.text(`Scan #${id}`,14,28); doc.text(`Generated: ${new Date().toLocaleString()}`,14,34);
+  let y=46;
   for (const key in data) {
-    const report = data[key];
-    if (y > 250) { doc.addPage(); y = 20; }
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(14);
-    doc.text(`${report.regulation} - Status: ${report.status} (${report.score_pct}%)`, 14, y);
-    y += 8;
-    
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    report.checks.forEach(check => {
-      if (y > 270) { doc.addPage(); y = 20; }
-      const status = check.passed ? '[PASS]' : '[FAIL]';
-      doc.text(`${status} ${check.item}`, 16, y);
-      y += 6;
-      if (!check.passed) {
-        doc.setFont("helvetica", "italic");
-        doc.setFontSize(9);
-        if (check.gap) {
-          doc.text(`  Gap: ${check.gap}`, 16, y, { maxWidth: 170 });
-          y += 5;
-        }
-        if (check.action) {
-          doc.text(`  Action: ${check.action}`, 16, y, { maxWidth: 170 });
-          y += 5;
-        }
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(10);
-        y += 2;
-      }
-    });
-    y += 6;
+    const r=data[key]; if(y>250){doc.addPage();y=20;}
+    doc.setFont("helvetica","bold"); doc.setFontSize(14); doc.text(`${r.regulation} — ${r.status} (${r.score_pct}%)`,14,y); y+=8;
+    doc.setFont("helvetica","normal"); doc.setFontSize(10);
+    r.checks.forEach(c=>{ if(y>270){doc.addPage();y=20;} doc.text(`${c.passed?'[PASS]':'[FAIL]'} ${c.item}`,16,y); y+=6; if(!c.passed){doc.setFont("helvetica","italic");doc.setFontSize(9);if(c.gap){doc.text(`  Gap: ${c.gap}`,16,y,{maxWidth:170});y+=5;}if(c.action){doc.text(`  Action: ${c.action}`,16,y,{maxWidth:170});y+=5;}doc.setFont("helvetica","normal");doc.setFontSize(10);y+=2;} });
+    y+=6;
   }
-  
-  doc.save(`mythosshield-compliance-${id}.pdf`);
-  toast('PDF downloaded', 'success');
+  doc.save(`mythosshield-compliance-${id}.pdf`); toast('PDF downloaded','success');
 }
 
-async function apiFetch(path, method = 'GET', body = null) {
-  const user = auth.currentUser;
-  
-  // Set mock headers if no user is logged in (to enable demo mode)
-  let idToken = "demo-token";
-  if (user) {
-    try {
-      idToken = await user.getIdToken();
-    } catch(err) {
-      console.warn("Could not get Firebase token, using mock fallback token");
-    }
-  }
-  
-  const opts = { method, headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` } };
-  if (body) opts.body = JSON.stringify(body);
-  const r = await fetch(API + path, opts);
-  const d = await r.json();
-  if (!r.ok) throw new Error(d.error || 'API error');
+async function apiFetch(path, method='GET', body=null) {
+  const user=auth.currentUser;
+  let idToken="demo-token";
+  if (user) { try { idToken=await user.getIdToken(); } catch(e){} }
+  const opts={method,headers:{'Content-Type':'application/json','Authorization':`Bearer ${idToken}`}};
+  if (body) opts.body=JSON.stringify(body);
+  const r=await fetch(API+path,opts);
+  const d=await r.json();
+  if (!r.ok) throw new Error(d.error||'API error');
   return d;
 }
 
-function toast(msg, type = 'success') {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.className = `toast ${type} show`;
-  setTimeout(() => t.classList.remove('show'), 3000);
+function toast(msg,type='success') {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className=`toast ${type} show`;
+  setTimeout(()=>t.classList.remove('show'),3000);
 }
 </script>
 </body>
