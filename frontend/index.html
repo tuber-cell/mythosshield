@@ -117,6 +117,39 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 th { text-align: left; padding: 8px 12px; font-family: var(--mono); font-size: 11px; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--border); }
 td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--text); }
+
+/* ── TERMS CHECKBOX ── */
+.terms-check {
+  display: flex; align-items: flex-start; gap: 10px;
+  margin-bottom: 16px; padding: 12px 14px;
+  background: var(--surface2); border: 1px solid var(--border2); border-radius: 6px;
+}
+.terms-check input[type="checkbox"] {
+  width: 16px; height: 16px; min-width: 16px; margin-top: 2px;
+  accent-color: var(--accent); cursor: pointer;
+}
+.terms-check label {
+  font-size: 12px; color: var(--muted); text-transform: none;
+  font-family: var(--sans); letter-spacing: 0; cursor: pointer; line-height: 1.6;
+}
+.terms-check label a {
+  color: var(--accent); text-decoration: none; border-bottom: 1px solid rgba(0,229,160,0.3);
+}
+.terms-check label a:hover { border-bottom-color: var(--accent); }
+/* ── FORGOT PASSWORD ── */
+.forgot-link {
+  display: block; text-align: center; margin-top: 12px;
+  font-size: 12px; color: var(--muted); cursor: pointer;
+  transition: color 0.2s;
+}
+.forgot-link:hover { color: var(--accent); }
+/* ── PRIVACY FOOTER ── */
+.auth-privacy {
+  text-align: center; margin-top: 20px;
+  font-size: 11px; color: var(--muted); line-height: 1.7;
+}
+.auth-privacy a { color: var(--muted); text-decoration: underline; }
+.auth-privacy a:hover { color: var(--accent); }
 </style>
 </head>
 <body>
@@ -142,6 +175,7 @@ td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--te
         </div>
       </div>
       <button class="btn btn-primary" style="width:100%" onclick="doLogin()">Login</button>
+      <span class="forgot-link" onclick="doPasswordReset()">Forgot password? Reset via email →</span>
     </div>
     <div id="register-form" style="display:none">
       <div class="form-group"><label>Bank Name</label><input type="text" id="reg-bank" placeholder="State Bank of India"></div>
@@ -154,7 +188,22 @@ td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--te
           <button class="toggle-password" onclick="togglePassword('reg-password', this)">👁️</button>
         </div>
       </div>
+      <div class="terms-check">
+        <input type="checkbox" id="terms-agree">
+        <label for="terms-agree">
+          I have read and agree to the
+          <a href="/privacy-terms.html" target="_blank">Privacy Policy</a>
+          and
+          <a href="/privacy-terms.html" target="_blank">Terms of Service</a>.
+          I confirm I am registering on behalf of a bank or financial institution.
+        </label>
+      </div>
       <button class="btn btn-primary" style="width:100%" onclick="doRegister()">Create Account</button>
+    </div>
+    <div class="auth-privacy">
+      By using MythosShield you agree to our
+      <a href="/privacy-terms.html" target="_blank">Privacy Policy</a> &
+      <a href="/privacy-terms.html" target="_blank">Terms</a>
     </div>
   </div>
 </div>
@@ -173,7 +222,8 @@ td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--te
     </nav>
     <div class="sidebar-footer">
       <div id="sidebar-bank" style="margin-bottom:6px;color:var(--text);font-size:12px"></div>
-      <div style="cursor:pointer;color:var(--danger)" onclick="logout()">→ Logout</div>
+      <div style="cursor:pointer;color:var(--danger);margin-bottom:8px" onclick="logout()">→ Logout</div>
+      <a href="/privacy-terms.html" target="_blank" style="color:var(--muted);font-size:10px;text-decoration:none;letter-spacing:0.03em;">Privacy & Terms</a>
     </div>
   </div>
 
@@ -429,6 +479,16 @@ async function doRegister() {
   const password = document.getElementById('reg-password').value;
   if (!bank_name || !email || !password) { toast('Please fill all required fields', 'error'); return; }
   if (password.length < 6) { toast('Password must be at least 6 characters', 'error'); return; }
+  // Check terms agreement
+  const termsBox = document.getElementById('terms-agree');
+  if (termsBox && !termsBox.checked) {
+    toast('Please agree to Privacy Policy and Terms of Service', 'error');
+    termsBox.closest('.terms-check').style.borderColor = 'var(--danger)';
+    setTimeout(() => termsBox.closest('.terms-check').style.borderColor = 'var(--border2)', 2000);
+    return;
+  }
+  // Save agreement so never shown again
+  localStorage.setItem('ms_terms_agreed', Date.now());
   const btn = document.querySelector('#register-form .btn-primary');
   btn.textContent = 'Creating account...'; btn.disabled = true;
   try {
@@ -485,8 +545,8 @@ async function loadDashboard() {
     // ✅ FIXED: was .join('')); — extra ) caused entire script to crash
     document.getElementById('recent-scans').innerHTML = scans.slice(0,5).map(s => `
       <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px">
-        <div style="font-family:var(--mono);color:var(--text)">#${s.id} ${s.source||'Unknown'}</div>
-        <div style="color:var(--muted)">${(s.created_at||'').slice(0,10)}</div>
+        <div style="font-family:var(--mono);color:var(--text)">#${sanitizeHTML(String(s.id))} ${sanitizeHTML(s.source||'Unknown')}</div>
+        <div style="color:var(--muted)">${sanitizeHTML((s.created_at||'').slice(0,10))}</div>
       </div>`).join('');
     if (scans.length > 0) {
       try {
@@ -530,7 +590,7 @@ async function populateScanDropdowns() {
   ['scan-select','comp-scan-select'].forEach(id => {
     const sel = document.getElementById(id); if (!sel) return;
     const existing = sel.value;
-    sel.innerHTML = '<option value="">Select a scan…</option>' + scans.map(s=>`<option value="${s.id}">#${s.id} — ${(s.source||'Unknown').split('/').pop()}</option>`).join('');
+    sel.innerHTML = '<option value="">Select a scan…</option>' + scans.map(s=>`<option value="${sanitizeHTML(String(s.id))}">#${sanitizeHTML(String(s.id))} — ${sanitizeHTML((s.source||'Unknown').split('/').pop())}</option>`).join('');
     if (existing && scans.find(s=>s.id==existing)) sel.value=existing;
   });
 }
@@ -546,13 +606,13 @@ async function loadScanResult() {
     html += '<div class="card"><div class="section-title">SBOM Components</div>';
     if (data.sbom?.artifacts?.length) {
       html += '<table><thead><tr><th>Component</th><th>Version</th><th>Type</th></tr></thead><tbody>';
-      data.sbom.artifacts.forEach(c => { html += `<tr><td>${c.name}</td><td>${c.version}</td><td>${c.type}</td></tr>`; });
+      data.sbom.artifacts.forEach(c => { html += `<tr><td>${sanitizeHTML(c.name)}</td><td>${sanitizeHTML(c.version)}</td><td>${sanitizeHTML(c.type)}</td></tr>`; });
       html += '</tbody></table>';
     } else { html += '<div class="empty">No components found</div>'; }
     html += '</div>';
     if (data.aibom?.models?.length) {
       html += '<div class="card"><div class="section-title">AI Models (AIBOM)</div><table><thead><tr><th>Model</th><th>Format</th><th>Size</th></tr></thead><tbody>';
-      data.aibom.models.forEach(m => { html += `<tr><td>${m.name}</td><td>${m.format}</td><td>${(m.size_bytes/1024).toFixed(2)} KB</td></tr>`; });
+      data.aibom.models.forEach(m => { html += `<tr><td>${sanitizeHTML(m.name)}</td><td>${sanitizeHTML(m.format)}</td><td>${(m.size_bytes/1024).toFixed(2)} KB</td></tr>`; });
       html += '</tbody></table></div>';
     }
     html += '<div class="card"><div class="section-title">Vulnerabilities</div>';
@@ -560,7 +620,7 @@ async function loadScanResult() {
       html += '<table><thead><tr><th>CVE ID</th><th>Component</th><th>Severity</th><th>Peer Intel</th><th>Remediation</th></tr></thead><tbody>';
       data.vulnerabilities.forEach(v => {
         const pr=v.peer_reports||0;
-        html += `<tr><td><strong style="font-family:var(--mono)">${v.cve_id}</strong></td><td>${v.component} (v${v.version||'N/A'})</td><td><span class="badge badge-${(v.severity||'low').toLowerCase()}">${v.severity}</span></td><td>${pr>0?`<span class="badge badge-critical">⚠️ ${pr} peer${pr>1?'s':''}</span>`:'<span class="badge badge-low">None</span>'}</td><td style="font-size:12px;color:var(--muted)">${v.remediation||'N/A'}</td></tr>`;
+        html += `<tr><td><strong style="font-family:var(--mono)">${sanitizeHTML(v.cve_id)}</strong></td><td>${sanitizeHTML(v.component)} (v${sanitizeHTML(v.version||'N/A')})</td><td><span class="badge badge-${sanitizeHTML((v.severity||'low').toLowerCase())}">${sanitizeHTML(v.severity)}</span></td><td>${pr>0?`<span class="badge badge-critical">⚠️ ${pr} peer${pr>1?'s':''}</span>`:'<span class="badge badge-low">None</span>'}</td><td style="font-size:12px;color:var(--muted)">${sanitizeHTML(v.remediation||'N/A')}</td></tr>`;
       });
       html += '</tbody></table>';
     } else { html += '<div class="empty">No vulnerabilities found</div>'; }
@@ -578,9 +638,9 @@ async function loadCompliance() {
     for (const key in data) {
       const report=data[key];
       const sc=report.score_pct>=80?'badge-ok':report.score_pct>=50?'badge-high':'badge-critical';
-      html += `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><h3 style="margin:0;font-size:16px;font-family:var(--mono)">${report.regulation}</h3><span class="badge ${sc}">${report.status} (${report.score_pct}%)</span></div><div style="background:var(--surface2);height:6px;border-radius:3px;margin-bottom:20px;overflow:hidden"><div style="background:var(--accent);height:100%;width:${report.score_pct}%"></div></div><div class="section-title">Gap Analysis</div><div>`;
+      html += `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><h3 style="margin:0;font-size:16px;font-family:var(--mono)">${sanitizeHTML(report.regulation)}</h3><span class="badge ${sc}">${sanitizeHTML(report.status)} (${sanitizeHTML(String(report.score_pct))}%)</span></div><div style="background:var(--surface2);height:6px;border-radius:3px;margin-bottom:20px;overflow:hidden"><div style="background:var(--accent);height:100%;width:${report.score_pct}%"></div></div><div class="section-title">Gap Analysis</div><div>`;
       report.checks.forEach(c => {
-        html += `<div class="check-item"><div class="check-icon ${c.passed?'check-pass':'check-fail'}">${c.passed?'✓':'✗'}</div><div class="check-text"><strong>${c.item}</strong>${!c.passed&&c.gap?`<div class="check-gap">⚠️ ${c.gap}</div>`:''}${!c.passed&&c.action?`<div style="font-size:11px;color:var(--muted);margin-top:2px">💡 ${c.action}</div>`:''}</div></div>`;
+        html += `<div class="check-item"><div class="check-icon ${c.passed?'check-pass':'check-fail'}">${c.passed?'✓':'✗'}</div><div class="check-text"><strong>${sanitizeHTML(c.item)}</strong>${!c.passed&&c.gap?`<div class="check-gap">⚠️ ${sanitizeHTML(c.gap)}</div>`:''}${!c.passed&&c.action?`<div style="font-size:11px;color:var(--muted);margin-top:2px">💡 ${sanitizeHTML(c.action)}</div>`:''}</div></div>`;
       });
       html += '</div></div>';
     }
@@ -647,11 +707,11 @@ async function loadThreatsFeed() {
       <div class="check-item" style="border-bottom:1px solid var(--border);padding-bottom:12px">
         <div class="check-text">
           <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-            <strong style="font-family:var(--mono);color:var(--accent)">${t.cve_id}</strong>
-            <span class="tag">${t.tenant_id}</span>
+            <strong style="font-family:var(--mono);color:var(--accent)">${sanitizeHTML(t.cve_id)}</strong>
+            <span class="tag">${sanitizeHTML(t.tenant_id)}</span>
           </div>
-          <div style="font-size:12px;margin-bottom:4px">Component: <strong>${t.component}</strong></div>
-          ${t.notes?`<div style="font-size:12px;color:var(--muted);background:var(--surface2);padding:8px;border-radius:4px;margin-top:4px">${t.notes}</div>`:''}
+          <div style="font-size:12px;margin-bottom:4px">Component: <strong>${sanitizeHTML(t.component)}</strong></div>
+          ${t.notes?`<div style="font-size:12px;color:var(--muted);background:var(--surface2);padding:8px;border-radius:4px;margin-top:4px">${sanitizeHTML(t.notes)}</div>`:''}
           <div style="font-size:10px;color:var(--muted);margin-top:6px;text-align:right">${new Date(t.published_at).toLocaleString()}</div>
         </div>
       </div>`).join('')+'</div>';
@@ -712,6 +772,38 @@ async function apiFetch(path, method='GET', body=null) {
   const d=await r.json();
   if (!r.ok) throw new Error(d.error||'API error');
   return d;
+}
+
+
+// ── SECURITY: XSS sanitizer — always use this before inserting backend data into innerHTML
+function sanitizeHTML(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#x27;")
+    .replace(/\//g, "&#x2F;");
+}
+
+
+// ── PASSWORD RESET ────────────────────────────────────────
+async function doPasswordReset() {
+  const email = document.getElementById('login-email').value.trim();
+  if (!email) { toast('Enter your email address above first', 'error'); return; }
+  try {
+    if (typeof firebase !== 'undefined' && firebase.auth) {
+      await firebase.auth().sendPasswordResetEmail(email);
+    }
+    toast('✅ Password reset email sent — check your inbox!', 'success');
+  } catch(error) {
+    const msgs = {
+      'auth/user-not-found': 'No account found with this email',
+      'auth/invalid-email':  'Invalid email address',
+    };
+    toast(msgs[error.code] || 'Reset failed — try again', 'error');
+  }
 }
 
 function toast(msg,type='success') {
