@@ -796,7 +796,7 @@ async function doPasswordReset() {
     if (typeof firebase !== 'undefined' && firebase.auth) {
       await firebase.auth().sendPasswordResetEmail(email);
     }
-    toast('✅ Password reset email sent — check your inbox!', 'success');
+    toast('✅ Reset email sent! Check inbox AND spam folder — mark as Not Spam', 'success');
   } catch(error) {
     const msgs = {
       'auth/user-not-found': 'No account found with this email',
