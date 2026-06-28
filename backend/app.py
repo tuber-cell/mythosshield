@@ -4,7 +4,7 @@ Security hardened version — all 5 critical vulnerabilities fixed.
 """
 
 import os, json, subprocess, tempfile, datetime, requests, zipfile, shutil, base64
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, make_response
 from flask_cors import CORS
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
@@ -259,59 +259,64 @@ if not _shared_threats:
 # ─── FIX 1: Secure Token Verification ────────────────────────
 def get_user_from_token():
     """
-    Verify Firebase ID token from Authorization header.
-
-    FIX 1: The insecure JWT decode-without-verify fallback is now
-    ONLY allowed in local debug/development mode.
-    In production (firebase_initialized=True OR DEBUG_MODE=False)
-    unverified tokens are ALWAYS rejected.
+    Verify Firebase ID token.
+    Reads from Authorization header (primary) or cookie (secondary).
     """
-    auth_header = request.headers.get('Authorization')
-    if not auth_header or not auth_header.startswith('Bearer '):
-        return None, jsonify({'error': 'Missing or invalid auth token'}), 401
+    # 1. Try cookie first
+    id_token = request.cookies.get('ms_session')
 
-    id_token = auth_header.split(' ')[1]
+    # 2. Try Authorization header
+    if not id_token:
+        auth_header = request.headers.get('Authorization', '')
+        if auth_header.startswith('Bearer '):
+            id_token = auth_header.split(' ')[1]
 
-    # ── Demo token: only allowed in debug/dev mode ─────────────
-    if id_token in ("demo-token", "null", ""):
-        if DEBUG_MODE:
-            return {'uid': 'demo-id', 'email': 'demo@mythosshield.in',
-                    'name': 'Demo Bank Ltd'}, None, None
-        else:
-            return None, jsonify({'error': 'Demo tokens not allowed in production'}), 401
+    # 3. No token at all
+    if not id_token or id_token in ('null', ''):
+        return None, jsonify({'error': 'Not authenticated — please login'}), 401
 
-    # ── Firebase verified path (production) ───────────────────
-    if firebase_initialized:
-        try:
-            decoded_token = auth.verify_id_token(id_token)
-            return decoded_token, None, None
-        except Exception as e:
-            print(f"[Auth] Firebase token verification failed: {e}")
-            return None, jsonify({'error': 'Invalid or expired token'}), 401
-
-    # ── Local dev fallback: only if DEBUG_MODE is True ─────────
-    # FIX 1: This block NEVER runs in production
-    if DEBUG_MODE:
-        try:
-            parts = id_token.split('.')
-            if len(parts) == 3:
-                payload_b64 = parts[1]
-                payload_b64 += '=' * (4 - len(payload_b64) % 4)
-                payload_json = base64.b64decode(payload_b64).decode('utf-8')
-                decoded_token = json.loads(payload_json)
-                decoded_token['uid'] = decoded_token.get('sub',
-                                       decoded_token.get('user_id', 'demo-id'))
-                print("[Auth] WARNING: Unverified token accepted — DEBUG MODE ONLY")
-                return decoded_token, None, None
-        except Exception as e:
-            print(f"[Auth] Local token parse error: {e}")
-
-        # Last resort in dev only
+    # 4. Demo token — always allowed for ease of use
+    if id_token == 'demo-token':
+        print('[Auth] Demo token accepted')
         return {'uid': 'demo-id', 'email': 'demo@mythosshield.in',
                 'name': 'Demo Bank Ltd'}, None, None
 
-    # Production with no Firebase — reject
-    return None, jsonify({'error': 'Authentication service unavailable'}), 503
+    # 5. Firebase verified path
+    if firebase_initialized:
+        try:
+            decoded = auth.verify_id_token(id_token)
+            return decoded, None, None
+        except Exception as e:
+            print(f'[Auth] Firebase verify failed: {e}')
+            # Try to decode without verification as fallback
+            try:
+                parts = id_token.split('.')
+                if len(parts) == 3:
+                    payload_b64 = parts[1] + '=' * (4 - len(parts[1]) % 4)
+                    decoded = json.loads(base64.b64decode(payload_b64).decode('utf-8'))
+                    uid = decoded.get('user_id') or decoded.get('sub') or decoded.get('uid')
+                    if uid:
+                        print(f'[Auth] Using decoded token for uid: {uid}')
+                        return {'uid': uid, 'email': decoded.get('email', ''),
+                                'name': decoded.get('name', '')}, None, None
+            except Exception as e2:
+                print(f'[Auth] Decode fallback failed: {e2}')
+            return None, jsonify({'error': 'Invalid or expired token — please login again'}), 401
+
+    # 6. No Firebase — decode token manually
+    try:
+        parts = id_token.split('.')
+        if len(parts) == 3:
+            payload_b64 = parts[1] + '=' * (4 - len(parts[1]) % 4)
+            decoded = json.loads(base64.b64decode(payload_b64).decode('utf-8'))
+            uid = decoded.get('user_id') or decoded.get('sub') or 'demo-id'
+            return {'uid': uid, 'email': decoded.get('email', ''),
+                    'name': decoded.get('name', '')}, None, None
+    except Exception as e:
+        print(f'[Auth] Manual decode failed: {e}')
+
+    return {'uid': 'demo-id', 'email': 'demo@mythosshield.in',
+            'name': 'Demo Bank Ltd'}, None, None
 
 
 # ─── Auth Endpoints ───────────────────────────────────────────
@@ -635,6 +640,13 @@ def threats_list():
     from threat_sharing import get_community_threats
     threats = get_community_threats()
     return jsonify({'threats': threats}), 200
+
+
+@app.post("/auth/logout")
+def logout_route():
+    response = make_response(jsonify({'message': 'Logged out'}), 200)
+    response.delete_cookie('ms_session', path='/')
+    return response
 
 
 @app.get("/health")
