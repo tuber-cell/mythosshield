@@ -117,39 +117,6 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 th { text-align: left; padding: 8px 12px; font-family: var(--mono); font-size: 11px; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--border); }
 td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--text); }
-
-/* ── TERMS CHECKBOX ── */
-.terms-check {
-  display: flex; align-items: flex-start; gap: 10px;
-  margin-bottom: 16px; padding: 12px 14px;
-  background: var(--surface2); border: 1px solid var(--border2); border-radius: 6px;
-}
-.terms-check input[type="checkbox"] {
-  width: 16px; height: 16px; min-width: 16px; margin-top: 2px;
-  accent-color: var(--accent); cursor: pointer;
-}
-.terms-check label {
-  font-size: 12px; color: var(--muted); text-transform: none;
-  font-family: var(--sans); letter-spacing: 0; cursor: pointer; line-height: 1.6;
-}
-.terms-check label a {
-  color: var(--accent); text-decoration: none; border-bottom: 1px solid rgba(0,229,160,0.3);
-}
-.terms-check label a:hover { border-bottom-color: var(--accent); }
-/* ── FORGOT PASSWORD ── */
-.forgot-link {
-  display: block; text-align: center; margin-top: 12px;
-  font-size: 12px; color: var(--muted); cursor: pointer;
-  transition: color 0.2s;
-}
-.forgot-link:hover { color: var(--accent); }
-/* ── PRIVACY FOOTER ── */
-.auth-privacy {
-  text-align: center; margin-top: 20px;
-  font-size: 11px; color: var(--muted); line-height: 1.7;
-}
-.auth-privacy a { color: var(--muted); text-decoration: underline; }
-.auth-privacy a:hover { color: var(--accent); }
 </style>
 </head>
 <body>
@@ -175,7 +142,6 @@ td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--te
         </div>
       </div>
       <button class="btn btn-primary" style="width:100%" onclick="doLogin()">Login</button>
-      <span class="forgot-link" onclick="doPasswordReset()">Forgot password? Reset via email →</span>
     </div>
     <div id="register-form" style="display:none">
       <div class="form-group"><label>Bank Name</label><input type="text" id="reg-bank" placeholder="State Bank of India"></div>
@@ -188,22 +154,7 @@ td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--te
           <button class="toggle-password" onclick="togglePassword('reg-password', this)">👁️</button>
         </div>
       </div>
-      <div class="terms-check">
-        <input type="checkbox" id="terms-agree">
-        <label for="terms-agree">
-          I have read and agree to the
-          <a href="/privacy-terms.html" target="_blank">Privacy Policy</a>
-          and
-          <a href="/privacy-terms.html" target="_blank">Terms of Service</a>.
-          I confirm I am registering on behalf of a bank or financial institution.
-        </label>
-      </div>
       <button class="btn btn-primary" style="width:100%" onclick="doRegister()">Create Account</button>
-    </div>
-    <div class="auth-privacy">
-      By using MythosShield you agree to our
-      <a href="/privacy-terms.html" target="_blank">Privacy Policy</a> &
-      <a href="/privacy-terms.html" target="_blank">Terms</a>
     </div>
   </div>
 </div>
@@ -222,8 +173,7 @@ td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--te
     </nav>
     <div class="sidebar-footer">
       <div id="sidebar-bank" style="margin-bottom:6px;color:var(--text);font-size:12px"></div>
-      <div style="cursor:pointer;color:var(--danger);margin-bottom:8px" onclick="logout()">→ Logout</div>
-      <a href="/privacy-terms.html" target="_blank" style="color:var(--muted);font-size:10px;text-decoration:none;letter-spacing:0.03em;">Privacy & Terms</a>
+      <div style="cursor:pointer;color:var(--danger)" onclick="logout()">→ Logout</div>
     </div>
   </div>
 
@@ -407,6 +357,16 @@ const API = (window.location.hostname==='localhost'||window.location.hostname===
   ? 'http://127.0.0.1:5000'
   : 'https://mythosshield-backend.onrender.com';
 
+
+// Wake up Render backend on page load (free tier sleeps)
+async function wakeBackend() {
+  try {
+    await fetch(`${API}/health`, { method: 'GET', signal: AbortSignal.timeout(10000) });
+    console.log('[Backend] Awake and ready');
+  } catch(e) { console.log('[Backend] Waking up...'); }
+}
+wakeBackend();
+
 let token = localStorage.getItem('ms_token');
 let bankName = localStorage.getItem('ms_bank');
 let scans = [];
@@ -479,16 +439,6 @@ async function doRegister() {
   const password = document.getElementById('reg-password').value;
   if (!bank_name || !email || !password) { toast('Please fill all required fields', 'error'); return; }
   if (password.length < 6) { toast('Password must be at least 6 characters', 'error'); return; }
-  // Check terms agreement
-  const termsBox = document.getElementById('terms-agree');
-  if (termsBox && !termsBox.checked) {
-    toast('Please agree to Privacy Policy and Terms of Service', 'error');
-    termsBox.closest('.terms-check').style.borderColor = 'var(--danger)';
-    setTimeout(() => termsBox.closest('.terms-check').style.borderColor = 'var(--border2)', 2000);
-    return;
-  }
-  // Save agreement so never shown again
-  localStorage.setItem('ms_terms_agreed', Date.now());
   const btn = document.querySelector('#register-form .btn-primary');
   btn.textContent = 'Creating account...'; btn.disabled = true;
   try {
@@ -567,22 +517,60 @@ async function loadDashboard() {
 async function startScan() {
   const zipFile = document.getElementById('scan-zip')?.files[0];
   if (!zipFile) { toast('Please upload a ZIP file to scan', 'error'); return; }
+  if (zipFile.size > 16 * 1024 * 1024) { toast('File too large — max 16MB', 'error'); return; }
+
   document.getElementById('scan-btn-text').innerHTML = '<span class="loading"></span> Scanning…';
-  document.getElementById('scan-status').textContent = 'Uploading and scanning...';
+  document.getElementById('scan-status').textContent = 'Uploading and scanning... (may take 30s)';
+
   try {
+    // Always get fresh token
+    const user = auth.currentUser;
+    let idToken = 'demo-token';
+    if (user) {
+      try { idToken = await user.getIdToken(true); } catch(e) { console.warn('Token refresh failed', e); }
+    }
+
     const formData = new FormData();
     formData.append('file', zipFile);
-    const r = await fetch(`${API}/scan/upload`, { method:'POST', headers:{'Authorization':`Bearer ${token}`}, body:formData });
-    if (!r.ok) throw new Error(await r.text()||'Upload failed');
+
+    // 90 second timeout for slow backends
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 90000);
+
+    const r = await fetch(`${API}/scan/upload`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${idToken}` },
+      body: formData,
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+
+    if (!r.ok) {
+      let errMsg = 'Upload failed';
+      try { const d = await r.json(); errMsg = d.error || errMsg; } catch(e) {}
+      throw new Error(errMsg);
+    }
+
     const response = await r.json();
-    scans.unshift({ id:response.scan_id, source:zipFile.name, created_at:new Date().toISOString() });
+    const scanId = response.scan_id || response.id || Date.now();
+    scans.unshift({ id: scanId, source: zipFile.name, created_at: new Date().toISOString() });
     document.getElementById('scan-status').textContent = 'Scan completed!';
-    toast(`Scan #${response.scan_id} complete!`, 'success');
-    document.getElementById('scan-source').value=''; document.getElementById('scan-zip').value='';
-    loadDashboard(); populateScanDropdowns();
+    toast('Scan #' + scanId + ' complete!', 'success');
+    document.getElementById('scan-source').value = '';
+    document.getElementById('scan-zip').value = '';
+    loadDashboard();
+    populateScanDropdowns();
+
   } catch(e) {
-    toast('Scan failed: '+e.message, 'error');
-  } finally { document.getElementById('scan-btn-text').textContent = 'Run Scan'; }
+    let msg = e.message || 'Unknown error';
+    if (e.name === 'AbortError') msg = 'Scan timed out — backend waking up, please wait 30 seconds and try again';
+    if (msg.includes('Failed to fetch')) msg = 'Cannot reach backend — open ' + API + '/health in new tab to wake it, then try again';
+    toast('Scan failed: ' + msg, 'error');
+    console.error('Scan error:', e);
+  } finally {
+    document.getElementById('scan-btn-text').textContent = 'Run Scan';
+    setTimeout(() => { document.getElementById('scan-status').textContent = ''; }, 3000);
+  }
 }
 
 async function populateScanDropdowns() {
@@ -785,25 +773,6 @@ function sanitizeHTML(str) {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#x27;")
     .replace(/\//g, "&#x2F;");
-}
-
-
-// ── PASSWORD RESET ────────────────────────────────────────
-async function doPasswordReset() {
-  const email = document.getElementById('login-email').value.trim();
-  if (!email) { toast('Enter your email address above first', 'error'); return; }
-  try {
-    if (typeof firebase !== 'undefined' && firebase.auth) {
-      await firebase.auth().sendPasswordResetEmail(email);
-    }
-    toast('✅ Reset email sent! Check inbox AND spam folder — mark as Not Spam', 'success');
-  } catch(error) {
-    const msgs = {
-      'auth/user-not-found': 'No account found with this email',
-      'auth/invalid-email':  'Invalid email address',
-    };
-    toast(msgs[error.code] || 'Reset failed — try again', 'error');
-  }
 }
 
 function toast(msg,type='success') {
