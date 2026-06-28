@@ -4,7 +4,7 @@ Security hardened version — all 5 critical vulnerabilities fixed.
 """
 
 import os, json, subprocess, tempfile, datetime, requests, zipfile, shutil, base64
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, make_response
 from flask_cors import CORS
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
@@ -31,8 +31,6 @@ def _is_allowed(origin):
     if _re.match(r'https://mythosshield.*\.vercel\.app', origin): return True
     if origin in ['http://localhost:3000','http://localhost:5000','http://127.0.0.1:5000']: return True
     return False
-
-CORS(app, origins='*', supports_credentials=True)
 
 @app.after_request
 def add_cors_headers(response):
