@@ -490,14 +490,15 @@ async function loadDashboard() {
     if (!scans.length) {
       document.getElementById('recent-scans').innerHTML = '<div class="empty">No scans yet — run your first scan</div>';
       ['m-score','m-components','m-critical','m-models'].forEach(id => document.getElementById(id).textContent='—');
+      document.getElementById('reg-status').innerHTML = '<div class="check-item"><div class="check-icon check-fail">✕</div><div class="check-text">Run a scan to assess compliance</div></div>';
       return;
     }
-    // ✅ FIXED: was .join('')); — extra ) caused entire script to crash
     document.getElementById('recent-scans').innerHTML = scans.slice(0,5).map(s => `
       <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px">
         <div style="font-family:var(--mono);color:var(--text)">#${sanitizeHTML(String(s.id))} ${sanitizeHTML(s.source||'Unknown')}</div>
         <div style="color:var(--muted)">${sanitizeHTML((s.created_at||'').slice(0,10))}</div>
       </div>`).join('');
+
     if (scans.length > 0) {
       try {
         const last = await apiFetch(`/scan/${scans[0].id}`);
@@ -505,6 +506,28 @@ async function loadDashboard() {
         document.getElementById('m-components').textContent = last.sbom?.artifacts?.length||0;
         document.getElementById('m-critical').textContent = last.vulnerabilities?.filter(v=>v.severity?.toLowerCase()==='critical').length||0;
         document.getElementById('m-models').textContent = last.aibom?.model_count||0;
+
+        // ✅ FIX: Regulatory Status now actually updates with real compliance data
+        try {
+          const compliance = await apiFetch(`/scan/${scans[0].id}/compliance`);
+          const regs = Object.values(compliance);
+          if (regs.length) {
+            document.getElementById('reg-status').innerHTML = regs.map(reg => {
+              const ok = reg.status === 'Compliant';
+              const warn = reg.status === 'Partially Compliant';
+              const iconClass = ok ? 'check-pass' : 'check-fail';
+              const icon = ok ? '✓' : (warn ? '!' : '✕');
+              return `<div class="check-item">
+                <div class="check-icon ${iconClass}">${icon}</div>
+                <div class="check-text"><strong>${sanitizeHTML(reg.regulation)}</strong> — ${sanitizeHTML(reg.status)} (${reg.score_pct}%)</div>
+              </div>`;
+            }).join('');
+          }
+        } catch(ce) {
+          console.warn('Could not load compliance for dashboard reg-status:', ce);
+          document.getElementById('reg-status').innerHTML = '<div class="check-item"><div class="check-icon check-fail">✕</div><div class="check-text">Could not load compliance status</div></div>';
+        }
+
       } catch(e) {
         ['m-score','m-components','m-critical','m-models'].forEach(id => document.getElementById(id).textContent='—');
       }

@@ -13,13 +13,11 @@ Usage:
 import os
 import sqlite3
 import sys
+import json
 import bcrypt
 
 DB_PATH = os.environ.get("DB_PATH", "mythosshield.db")
 
-# ── SCHEMA ────────────────────────────────────────────────────
-# Fix 1: Added security_events table to persist Shadow AI findings
-# Fix 2: Added custom_ai_endpoints table for dynamic endpoint rules
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS tenants (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -77,7 +75,6 @@ CREATE TABLE IF NOT EXISTS webhooks (
 """
 
 
-# ── CONNECTION ────────────────────────────────────────────────
 def get_connection(path: str = DB_PATH) -> sqlite3.Connection:
     conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
@@ -85,7 +82,6 @@ def get_connection(path: str = DB_PATH) -> sqlite3.Connection:
     return conn
 
 
-# ── INIT ──────────────────────────────────────────────────────
 def init_db(path: str = DB_PATH) -> None:
     """Create all tables if they don't already exist."""
     conn = get_connection(path)
@@ -95,7 +91,6 @@ def init_db(path: str = DB_PATH) -> None:
     print(f"[database] Initialised: {path}")
 
 
-# ── SEED ──────────────────────────────────────────────────────
 def seed_demo(path: str = DB_PATH) -> None:
     """Insert a demo tenant (idempotent — skips if email already exists)."""
     pw_hash = bcrypt.hashpw(b"Demo@1234", bcrypt.gensalt()).decode()
@@ -113,14 +108,8 @@ def seed_demo(path: str = DB_PATH) -> None:
         conn.close()
 
 
-# ── SECURITY EVENTS ───────────────────────────────────────────
 def save_security_events(tenant_id: int, findings: list, path: str = DB_PATH) -> int:
-    """
-    Persist Shadow AI findings to security_events table.
-    Called after analyze_logs() returns results.
-    Returns number of rows inserted.
-    """
-    import json
+    """Persist Shadow AI findings to security_events table. Returns rows inserted."""
     conn = get_connection(path)
     inserted = 0
     try:
@@ -148,12 +137,8 @@ def save_security_events(tenant_id: int, findings: list, path: str = DB_PATH) ->
     return inserted
 
 
-# ── CUSTOM ENDPOINTS ──────────────────────────────────────────
 def get_custom_endpoints(tenant_id: int, path: str = DB_PATH) -> dict:
-    """
-    Load bank-defined custom AI endpoint rules from DB.
-    Returns dict of {pattern: vendor_name} ready for analyze_logs().
-    """
+    """Load bank-defined custom AI endpoint rules. Returns {pattern: vendor_name}."""
     conn = get_connection(path)
     rows = conn.execute(
         "SELECT pattern, vendor_name FROM custom_ai_endpoints WHERE tenant_id=? AND active=1",
@@ -164,7 +149,7 @@ def get_custom_endpoints(tenant_id: int, path: str = DB_PATH) -> dict:
 
 
 def add_custom_endpoint(tenant_id: int, pattern: str, vendor_name: str, path: str = DB_PATH) -> None:
-    """Allow a bank to add their own AI endpoint pattern via the dashboard."""
+    """Allow a bank to add their own AI endpoint pattern."""
     conn = get_connection(path)
     try:
         conn.execute(
@@ -176,26 +161,21 @@ def add_custom_endpoint(tenant_id: int, pattern: str, vendor_name: str, path: st
         conn.close()
 
 
-# ── INSPECT ───────────────────────────────────────────────────
 def inspect(path: str = DB_PATH) -> None:
     """Print row counts for every table — SQL injection safe."""
     conn = get_connection(path)
-    # Step 1: get table names using bound query (no f-string)
     tables = conn.execute(
         "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
     ).fetchall()
-
     print(f"\n[database] Inspecting: {path}")
     print("-" * 36)
     for (t,) in tables:
-        # Step 2: bracket-insulate table name to prevent syntax injection
         row_count = conn.execute(f"SELECT COUNT(*) FROM [{t}]").fetchone()[0]
         print(f"  {t:<28} {row_count} rows")
     print("-" * 36)
     conn.close()
 
 
-# ── CLI ───────────────────────────────────────────────────────
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "help"
     if cmd == "init":

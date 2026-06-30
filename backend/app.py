@@ -4,7 +4,7 @@ Security hardened version — all 5 critical vulnerabilities fixed.
 """
 
 import os, json, subprocess, tempfile, datetime, requests, zipfile, shutil, base64
-from flask import Flask, request, jsonify, make_response
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
@@ -23,40 +23,12 @@ app = Flask(__name__)
 # ── FIX 4: 16MB upload size limit ─────────────────────────────
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
-# ── CORS: allow all mythosshield vercel URLs + localhost ────────
-import re as _re
-
-def _is_allowed(origin):
-    if not origin: return False
-    if _re.match(r'https://mythosshield.*\.vercel\.app', origin): return True
-    if origin in ['http://localhost:3000','http://localhost:5000','http://127.0.0.1:5000']: return True
-    return False
-
-@app.after_request
-def add_cors_headers(response):
-    origin = request.headers.get('Origin', '')
-    if _is_allowed(origin):
-        response.headers['Access-Control-Allow-Origin']      = origin
-        response.headers['Access-Control-Allow-Credentials'] = 'true'
-        response.headers['Access-Control-Allow-Headers']     = 'Content-Type,Authorization'
-        response.headers['Access-Control-Allow-Methods']     = 'GET,POST,PUT,DELETE,OPTIONS'
-    else:
-        # Allow all for now to debug
-        response.headers['Access-Control-Allow-Origin']  = '*'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type,Authorization'
-        response.headers['Access-Control-Allow-Methods'] = 'GET,POST,PUT,DELETE,OPTIONS'
-    return response
-
-@app.before_request
-def handle_options():
-    if request.method == 'OPTIONS':
-        resp = make_response('', 204)
-        origin = request.headers.get('Origin', '')
-        resp.headers['Access-Control-Allow-Origin']      = origin if _is_allowed(origin) else '*'
-        resp.headers['Access-Control-Allow-Credentials'] = 'true'
-        resp.headers['Access-Control-Allow-Headers']     = 'Content-Type,Authorization'
-        resp.headers['Access-Control-Allow-Methods']     = 'GET,POST,PUT,DELETE,OPTIONS'
-        return resp
+# ── CORS: restrict to your domain in production ────────────────
+ALLOWED_ORIGINS = os.environ.get(
+    'ALLOWED_ORIGINS',
+    'http://localhost:3000,http://localhost:5000,https://mythosshield.vercel.app'
+).split(',')
+CORS(app, origins=ALLOWED_ORIGINS)
 
 # ── DEBUG FLAG: controls unsafe fallback behaviour ─────────────
 DEBUG_MODE = app.debug or os.environ.get('FLASK_ENV') == 'development'
@@ -287,53 +259,59 @@ if not _shared_threats:
 # ─── FIX 1: Secure Token Verification ────────────────────────
 def get_user_from_token():
     """
-    3-layer auth: cookie → header → manual decode fallback
+    Verify Firebase ID token from Authorization header.
+
+    FIX 1: The insecure JWT decode-without-verify fallback is now
+    ONLY allowed in local debug/development mode.
+    In production (firebase_initialized=True OR DEBUG_MODE=False)
+    unverified tokens are ALWAYS rejected.
     """
-    # Layer 1: HttpOnly cookie
-    id_token = request.cookies.get('ms_session')
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return None, jsonify({'error': 'Missing or invalid auth token'}), 401
 
-    # Layer 2: Authorization header
-    if not id_token:
-        auth_header = request.headers.get('Authorization', '')
-        if auth_header.startswith('Bearer '):
-            id_token = auth_header.split(' ')[1].strip()
+    id_token = auth_header.split(' ')[1]
 
-    # No token at all
-    if not id_token or id_token in ('null', '', 'undefined'):
-        return None, jsonify({'error': 'Not authenticated'}), 401
+    # ── Demo token: only allowed in debug/dev mode ─────────────
+    if id_token in ("demo-token", "null", ""):
+        if DEBUG_MODE:
+            return {'uid': 'demo-id', 'email': 'demo@mythosshield.in',
+                    'name': 'Demo Bank Ltd'}, None, None
+        else:
+            return None, jsonify({'error': 'Demo tokens not allowed in production'}), 401
 
-    # Demo token — always accepted
-    if id_token == 'demo-token':
+    # ── Firebase verified path (production) ───────────────────
+    if firebase_initialized:
+        try:
+            decoded_token = auth.verify_id_token(id_token)
+            return decoded_token, None, None
+        except Exception as e:
+            print(f"[Auth] Firebase token verification failed: {e}")
+            return None, jsonify({'error': 'Invalid or expired token'}), 401
+
+    # ── Local dev fallback: only if DEBUG_MODE is True ─────────
+    # FIX 1: This block NEVER runs in production
+    if DEBUG_MODE:
+        try:
+            parts = id_token.split('.')
+            if len(parts) == 3:
+                payload_b64 = parts[1]
+                payload_b64 += '=' * (4 - len(payload_b64) % 4)
+                payload_json = base64.b64decode(payload_b64).decode('utf-8')
+                decoded_token = json.loads(payload_json)
+                decoded_token['uid'] = decoded_token.get('sub',
+                                       decoded_token.get('user_id', 'demo-id'))
+                print("[Auth] WARNING: Unverified token accepted — DEBUG MODE ONLY")
+                return decoded_token, None, None
+        except Exception as e:
+            print(f"[Auth] Local token parse error: {e}")
+
+        # Last resort in dev only
         return {'uid': 'demo-id', 'email': 'demo@mythosshield.in',
                 'name': 'Demo Bank Ltd'}, None, None
 
-    # Firebase verify
-    if firebase_initialized:
-        try:
-            decoded = auth.verify_id_token(id_token)
-            return decoded, None, None
-        except Exception as e:
-            print(f'[Auth] Firebase verify failed: {e}')
-
-    # Manual decode fallback — always try this
-    try:
-        parts = id_token.split('.')
-        if len(parts) >= 2:
-            pad = parts[1] + '=' * (4 - len(parts[1]) % 4)
-            decoded = json.loads(base64.b64decode(pad).decode('utf-8'))
-            uid = decoded.get('user_id') or decoded.get('sub') or decoded.get('uid')
-            if uid:
-                print(f'[Auth] Manual decode — uid: {uid}')
-                return {'uid': uid,
-                        'email': decoded.get('email', ''),
-                        'name':  decoded.get('name', '')}, None, None
-    except Exception as e:
-        print(f'[Auth] Manual decode failed: {e}')
-
-    # Last resort — allow as demo
-    print('[Auth] All auth failed — using demo fallback')
-    return {'uid': 'demo-id', 'email': 'demo@mythosshield.in',
-            'name': 'Demo Bank Ltd'}, None, None
+    # Production with no Firebase — reject
+    return None, jsonify({'error': 'Authentication service unavailable'}), 503
 
 
 # ─── Auth Endpoints ───────────────────────────────────────────
@@ -657,13 +635,6 @@ def threats_list():
     from threat_sharing import get_community_threats
     threats = get_community_threats()
     return jsonify({'threats': threats}), 200
-
-
-@app.post("/auth/logout")
-def logout_route():
-    resp = make_response(jsonify({'message': 'Logged out'}), 200)
-    resp.delete_cookie('ms_session', path='/')
-    return resp
 
 
 @app.get("/health")
