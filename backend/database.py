@@ -72,6 +72,20 @@ CREATE TABLE IF NOT EXISTS webhooks (
     active     INTEGER DEFAULT 1,
     created_at TEXT    DEFAULT (datetime('now'))
 );
+
+-- NEW: real, persistent storage for the threat-sharing feed.
+-- Previously this lived in an in-memory Python list in threat_sharing.py,
+-- which meant every server restart (e.g. Render free-tier sleep/wake)
+-- silently wiped every submitted report and the feed was reseeded with
+-- 3 hardcoded fake entries. That's fixed now — real submissions persist.
+CREATE TABLE IF NOT EXISTS threats (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    tenant_id    TEXT    NOT NULL,
+    cve_id       TEXT    NOT NULL,
+    component    TEXT    NOT NULL,
+    notes        TEXT,
+    published_at TEXT    DEFAULT (datetime('now'))
+);
 """
 
 
@@ -157,6 +171,45 @@ def add_custom_endpoint(tenant_id: int, pattern: str, vendor_name: str, path: st
             (tenant_id, pattern.lower(), vendor_name)
         )
         conn.commit()
+    finally:
+        conn.close()
+
+
+# ── Threat sharing (real persistence, replaces the old in-memory list) ──────
+
+def publish_threat_db(tenant_id, cve_id: str, component: str, notes: str = "", path: str = DB_PATH) -> dict:
+    conn = get_connection(path)
+    try:
+        cur = conn.execute(
+            "INSERT INTO threats (tenant_id, cve_id, component, notes) VALUES (?,?,?,?)",
+            (str(tenant_id), cve_id.strip().upper(), component.strip(), notes.strip()),
+        )
+        conn.commit()
+        row = conn.execute("SELECT * FROM threats WHERE id=?", (cur.lastrowid,)).fetchone()
+        return dict(row)
+    finally:
+        conn.close()
+
+
+def get_threats_db(limit: int = 50, path: str = DB_PATH) -> list:
+    conn = get_connection(path)
+    try:
+        rows = conn.execute(
+            "SELECT * FROM threats ORDER BY published_at DESC LIMIT ?", (limit,)
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def get_threats_by_cve_db(cve_id: str, path: str = DB_PATH) -> list:
+    conn = get_connection(path)
+    try:
+        rows = conn.execute(
+            "SELECT * FROM threats WHERE cve_id=? ORDER BY published_at",
+            (cve_id.strip().upper(),),
+        ).fetchall()
+        return [dict(r) for r in rows]
     finally:
         conn.close()
 

@@ -1,33 +1,43 @@
 """
 MythosShield — Threat Intelligence Sharing
 Peer-to-peer CVE/IOC sharing between tenants (opt-in).
+
+Previously this module kept everything in an in-memory Python list, which
+meant: (1) every report vanished on server restart, and (2) app.py seeded
+the feed with 3 hardcoded fake reports on every startup so the UI never
+looked empty. Both of those made the "community threats feed" fake by
+construction. This version persists real submissions to SQLite via
+database.py and does not fabricate any data.
 """
 
+import os
 import hashlib
-from datetime import datetime, timezone
 
-_shared_threats: list[dict] = []
+from database import publish_threat_db, get_threats_db, get_threats_by_cve_db
 
-PEER_SALT = "MythosShield_Enterprise_Salt_2026"
-
-
-def publish_threat(tenant_id: int, cve_id: str, component: str, notes: str = "") -> dict:
-    record = {
-        "id":           len(_shared_threats) + 1,
-        "tenant_id":    tenant_id,
-        "cve_id":       cve_id.strip().upper(),
-        "component":    component.strip(),
-        "notes":        notes.strip(),
-        "published_at": datetime.now(timezone.utc).isoformat(),
-    }
-    _shared_threats.append(record)
-    return record
+# The anonymisation salt MUST come from the environment in production.
+# A salt hardcoded in source control provides no real protection — anyone
+# with repo access (or this file) could recompute every tenant's token.
+PEER_SALT = os.environ.get("PEER_SALT")
+if not PEER_SALT:
+    PEER_SALT = "dev-only-insecure-salt-set-PEER_SALT-env-var"
+    print(
+        "[ThreatSharing] WARNING: PEER_SALT env var is not set. Using an "
+        "insecure development default. Set a real PEER_SALT in production "
+        "so anonymisation tokens can't be recomputed from this source code."
+    )
 
 
-def get_community_threats(limit: int = 50) -> list[dict]:
-    results = sorted(_shared_threats, key=lambda x: x["published_at"], reverse=True)[:limit]
+def publish_threat(tenant_id, cve_id: str, component: str, notes: str = "") -> dict:
+    """Persist a real, tenant-submitted threat report."""
+    return publish_threat_db(tenant_id, cve_id, component, notes)
+
+
+def get_community_threats(limit: int = 50) -> list:
+    """Return real submitted reports, with tenant identity anonymised."""
+    rows = get_threats_db(limit)
     anonymised = []
-    for r in results:
+    for r in rows:
         raw_identity = f"{r['tenant_id']}_{PEER_SALT}".encode()
         secure_token = hashlib.sha256(raw_identity).hexdigest()[:16]
         anonymised.append({**r, "tenant_id": f"anon_{secure_token}"})
@@ -35,8 +45,9 @@ def get_community_threats(limit: int = 50) -> list[dict]:
 
 
 def enrich_with_community_data(cve_id: str) -> dict:
-    cve_id  = cve_id.strip().upper()
-    matches = [t for t in _shared_threats if t.get("cve_id") == cve_id]
+    """Look up how many real peer reports exist for a given CVE."""
+    cve_id = cve_id.strip().upper()
+    matches = get_threats_by_cve_db(cve_id)
     return {
         "cve_id":            cve_id,
         "confirmed_in_wild": len(matches) > 0,

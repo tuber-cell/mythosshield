@@ -2,14 +2,20 @@
 MythosShield — Backend with Firebase & SQLite Integration
 Fully hardened: CORS+credentials fixed, 3-layer auth, Zip-Slip safe,
 HttpOnly cookie session, rate limiting.
+
+Vulnerability data comes from live OSV.dev lookups against the exact
+component name + version pulled from the SBOM — nothing here is
+hardcoded or fabricated. If a lookup fails, the scan reports the
+failure instead of inventing a result.
 """
 
-import os, json, tempfile, datetime, zipfile, shutil, base64, re as _re
+import os, json, tempfile, datetime, zipfile, shutil, base64, subprocess, re as _re
 from flask import Flask, request, jsonify, make_response
 from flask_cors import CORS
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
 import bcrypt
+import requests
 
 from database import init_db, seed_demo, save_security_events, get_custom_endpoints
 
@@ -294,12 +300,11 @@ except Exception as e:
     print(f"[Firebase] Init failed: {e}. Using local SQLite DB.")
     db = SQLiteFirestoreMock()
 
-# Seed shared threats
-from threat_sharing import _shared_threats, publish_threat
-if not _shared_threats:
-    publish_threat(1, "CVE-2023-32681", "requests", "Observed active credential harvesting via crafted redirects.")
-    publish_threat(2, "CVE-2023-30861", "flask", "Session cookie manipulation targeting admin dashboards.")
-    publish_threat(3, "CVE-2021-34141", "numpy", "Exploited via maliciously structured inputs in fraud detection.")
+# NOTE: the old code auto-published 3 hardcoded "demo" threat reports here
+# every time the server started, so the community feed always looked
+# populated even though nothing real had ever been submitted. That fake
+# seeding has been removed — the feed now only ever shows real submissions
+# from /threats/publish. It will legitimately start out empty.
 
 
 # ─── 3-Layer Token Verification ───────────────────────────────
@@ -428,33 +433,135 @@ def logout_route():
     return resp
 
 
-# ─── Vulnerability Scanning ───────────────────────────────────
+# ─── Vulnerability Scanning (real, live OSV.dev lookups) ─────
+# OSV.dev is the same open vulnerability database that tools like
+# osv-scanner and GitHub Dependabot query. It's free, requires no API key,
+# and supports exact package+ecosystem+version lookups in a single batch
+# call — which is exactly what an SBOM gives us. No component or CVE here
+# is hardcoded, and nothing is invented if the lookup comes back empty.
+
+OSV_BATCH_URL = "https://api.osv.dev/v1/querybatch"
+OSV_VULN_URL  = "https://api.osv.dev/v1/vulns/{}"
+
+ECOSYSTEM_MAP = {
+    "npm-package":    "npm",
+    "python-package": "PyPI",
+}
+
+
+def _bucket_from_score(score_str):
+    try:
+        s = float(score_str)
+    except (TypeError, ValueError):
+        return None
+    if s >= 9.0:
+        return "Critical"
+    if s >= 7.0:
+        return "High"
+    if s >= 4.0:
+        return "Medium"
+    if s > 0:
+        return "Low"
+    return None
+
+
+def _osv_severity(detail):
+    db_sev = (detail.get("database_specific") or {}).get("severity")
+    if db_sev:
+        mapping = {"LOW": "Low", "MODERATE": "Medium", "HIGH": "High", "CRITICAL": "Critical"}
+        return mapping.get(str(db_sev).upper(), str(db_sev).capitalize())
+    for sev in detail.get("severity", []) or []:
+        bucket = _bucket_from_score(sev.get("score", ""))
+        if bucket:
+            return bucket
+    return "Unknown"
+
+
+def _osv_fixed_version(detail):
+    for affected in detail.get("affected", []) or []:
+        for rng in affected.get("ranges", []) or []:
+            for ev in rng.get("events", []) or []:
+                if "fixed" in ev:
+                    return ev["fixed"]
+    return None
+
+
 def scan_vulnerabilities(sbom, aibom):
     vulns = []
     artifacts = sbom.get("artifacts", [])
-    for comp in artifacts:
-        name    = comp.get("name", "").lower()
-        version = comp.get("version", "")
-        try:
-            v_parts = [int(x) for x in version.split('.') if x.isdigit()]
-        except Exception:
-            v_parts = []
 
-        if name == "requests" and v_parts and (v_parts[0] < 2 or (v_parts[0] == 2 and len(v_parts) > 1 and v_parts[1] < 31)):
-            vulns.append({"cve_id":"CVE-2023-32681","component":"requests","version":version,"severity":"Medium","description":"Credentials exposure over HTTP redirect.","remediation":"Upgrade requests to >= 2.31.0"})
-        elif name == "flask" and v_parts and v_parts[0] < 3:
-            vulns.append({"cve_id":"CVE-2023-30861","component":"flask","version":version,"severity":"High","description":"Session cookie vulnerability leading to session hijacking.","remediation":"Upgrade Flask to >= 3.0.0"})
-        elif name == "numpy" and v_parts and (v_parts[0] < 1 or (v_parts[0] == 1 and len(v_parts) > 1 and v_parts[1] < 22)):
-            vulns.append({"cve_id":"CVE-2021-34141","component":"numpy","version":version,"severity":"Critical","description":"Buffer overflow leading to arbitrary code execution.","remediation":"Upgrade numpy to >= 1.22.0"})
-        elif name == "lodash" and v_parts and len(v_parts) >= 3 and (v_parts[0] < 4 or (v_parts[0]==4 and v_parts[1] < 17) or (v_parts[0]==4 and v_parts[1]==17 and v_parts[2] < 21)):
-            vulns.append({"cve_id":"CVE-2021-23337","component":"lodash","version":version,"severity":"High","description":"Prototype pollution leading to remote code execution.","remediation":"Upgrade lodash to >= 4.17.21"})
+    queries, query_components = [], []
+    for comp in artifacts:
+        eco = ECOSYSTEM_MAP.get(comp.get("type"))
+        version = (comp.get("version") or "").strip()
+        name = (comp.get("name") or "").strip()
+        if not eco or not name or not version or version.lower() == "unknown":
+            continue
+        queries.append({"package": {"name": name, "ecosystem": eco}, "version": version})
+        query_components.append(comp)
+
+    if queries:
+        try:
+            resp = requests.post(OSV_BATCH_URL, json={"queries": queries}, timeout=20)
+            resp.raise_for_status()
+            results = resp.json().get("results", [])
+
+            seen_ids = set()
+            for comp, result in zip(query_components, results):
+                for v in (result.get("vulns") or []):
+                    vid = v.get("id")
+                    if not vid or vid in seen_ids:
+                        continue
+                    seen_ids.add(vid)
+
+                    detail = {"id": vid}
+                    try:
+                        d_resp = requests.get(OSV_VULN_URL.format(vid), timeout=10)
+                        d_resp.raise_for_status()
+                        detail = d_resp.json()
+                    except requests.exceptions.RequestException as e:
+                        print(f"[VulnScan] Could not fetch detail for {vid}: {e}")
+
+                    fixed = _osv_fixed_version(detail)
+                    summary = detail.get("summary") or (detail.get("details") or "")[:300] or "No description provided by OSV.dev."
+
+                    vulns.append({
+                        "cve_id":       vid,
+                        "component":    comp["name"],
+                        "version":      comp.get("version"),
+                        "severity":     _osv_severity(detail),
+                        "description":  summary,
+                        "remediation":  f"Upgrade {comp['name']} to >= {fixed}" if fixed else "See the OSV.dev advisory for remediation guidance.",
+                        "source_url":   f"https://osv.dev/vulnerability/{vid}",
+                        "is_advisory":  False,
+                    })
+        except requests.exceptions.RequestException as e:
+            print(f"[VulnScan] OSV.dev batch query failed: {e}")
+            vulns.append({
+                "cve_id":      "SCAN-INCOMPLETE",
+                "component":   "N/A",
+                "version":     "N/A",
+                "severity":    "Unknown",
+                "description": f"Live vulnerability lookup against OSV.dev failed ({e}). "
+                                f"The SBOM/AIBOM above are real, but vulnerability results are "
+                                f"incomplete for this run — re-run the scan once connectivity is restored.",
+                "remediation": "Retry the scan.",
+                "is_advisory": True,
+            })
 
     for model in aibom.get("models", []):
         if model.get("format", "").lower() in ("pkl", "pickle", "joblib"):
-            vulns.append({"cve_id":"MS-AI-2025-001","component":model.get("name"),"version":"N/A","severity":"Critical","description":"Deserialization of untrusted AI model (Pickle) can lead to arbitrary code execution.","remediation":"Convert to safetensors or ONNX format."})
-
-    if not vulns and artifacts:
-        vulns.append({"cve_id":"CVE-2024-99999","component":artifacts[0]["name"],"version":artifacts[0]["version"],"severity":"High","description":"Prototype pollution in library dependency.","remediation":f"Upgrade {artifacts[0]['name']} to latest version."})
+            vulns.append({
+                "cve_id":      "MYTHOSSHIELD-ADV-PICKLE-DESERIALIZATION",
+                "component":   model.get("name"),
+                "version":     "N/A",
+                "severity":    "Critical",
+                "description": "General security advisory (not a registered CVE): Python pickle/joblib "
+                                "files execute arbitrary code on load. Loading an untrusted .pkl/.joblib "
+                                "model file is inherently unsafe regardless of its contents.",
+                "remediation": "Convert the model to a safe serialization format such as safetensors or ONNX.",
+                "is_advisory": True,
+            })
 
     return vulns
 
@@ -509,6 +616,72 @@ def safe_extract_zip(zip_path: str, extract_path: str) -> None:
         zip_ref.extractall(extract_path)
 
 
+# ─── Real GitHub URL / local path resolution ──────────────────
+def resolve_scan_source(source: str, work_dir: str) -> str:
+    """
+    Turns the 'GitHub URL or Local Folder Path' field into an actual
+    directory on disk to scan. Previously this field was pure decoration —
+    the frontend never sent it anywhere. Now:
+      - GitHub URLs are shallow-cloned with git.
+      - Anything else is treated as a path on the server's own filesystem,
+        which only resolves for self-hosted deployments where the backend
+        and the code live on the same machine (a hosted SaaS backend can
+        never see a path on the visitor's laptop — that's a hard constraint
+        of how browsers work, not a bug to paper over).
+    """
+    source = source.strip()
+    if source.startswith("http://") or source.startswith("https://"):
+        if "github.com" not in source:
+            raise ValueError("Only GitHub URLs are currently supported for remote repository scanning.")
+        target = os.path.join(work_dir, "repo")
+        try:
+            subprocess.run(
+                ["git", "clone", "--depth", "1", source, target],
+                check=True, capture_output=True, timeout=60,
+            )
+        except FileNotFoundError:
+            raise ValueError("git is not installed on this server — cannot clone repositories. Upload a ZIP instead.")
+        except subprocess.TimeoutExpired:
+            raise ValueError("git clone timed out after 60s.")
+        except subprocess.CalledProcessError as e:
+            stderr = e.stderr.decode(errors="ignore")[:300] if e.stderr else "unknown error"
+            raise ValueError(f"git clone failed: {stderr}")
+        return target
+    else:
+        if not os.path.isdir(source):
+            raise ValueError(
+                f"'{source}' was not found on the server's filesystem. Local-path scanning only "
+                f"works when this backend runs on the same machine as the code (self-hosted setups). "
+                f"For a hosted deployment, use a GitHub URL or upload a ZIP instead."
+            )
+        return source
+
+
+def _run_full_scan(scan_path, source_label, user_id):
+    sbom            = generate_sbom_from_path(scan_path)
+    aibom           = generate_aibom(scan_path)
+    vulnerabilities = scan_vulnerabilities(sbom, aibom)
+
+    from compliance import generate_all_reports
+    reports   = generate_all_reports({'sbom': sbom, 'aibom': aibom, 'vulnerabilities': vulnerabilities})
+    scores    = [reports[r]['score_pct'] for r in reports if 'score_pct' in reports[r]]
+    avg_score = round(sum(scores) / len(scores)) if scores else 0
+
+    scan_data = {
+        'user_id': user_id, 'source': source_label,
+        'sbom': sbom, 'aibom': aibom, 'vulnerabilities': vulnerabilities,
+        'compliance_score': avg_score,
+        'created_at': datetime.datetime.now(datetime.timezone.utc).isoformat()
+    }
+    doc_ref = db.collection('scans').add(scan_data)
+    scan_id = doc_ref[1].id
+
+    return {
+        'scan_id': scan_id, 'sbom': sbom, 'aibom': aibom,
+        'vulnerabilities': vulnerabilities, 'compliance_score': avg_score
+    }
+
+
 # ─── Scan Endpoints ───────────────────────────────────────────
 @app.post("/scan/upload")
 @limiter.limit("20 per hour")
@@ -532,34 +705,37 @@ def scan_upload():
         file.save(zip_path)
         os.makedirs(extract_path, exist_ok=True)
         safe_extract_zip(zip_path, extract_path)
-
-        sbom            = generate_sbom_from_path(extract_path)
-        aibom           = generate_aibom(extract_path)
-        vulnerabilities = scan_vulnerabilities(sbom, aibom)
-
-        from compliance import generate_all_reports
-        reports  = generate_all_reports({'sbom':sbom,'aibom':aibom,'vulnerabilities':vulnerabilities})
-        scores   = [reports[r]['score_pct'] for r in reports if 'score_pct' in reports[r]]
-        avg_score = round(sum(scores)/len(scores)) if scores else 0
-
-        scan_data = {
-            'user_id': user['uid'], 'source': file.filename,
-            'sbom': sbom, 'aibom': aibom, 'vulnerabilities': vulnerabilities,
-            'compliance_score': avg_score,
-            'created_at': datetime.datetime.now(datetime.timezone.utc).isoformat()
-        }
-        doc_ref = db.collection('scans').add(scan_data)
-        scan_id = doc_ref[1].id
-
-        return jsonify({
-            'scan_id': scan_id, 'sbom': sbom, 'aibom': aibom,
-            'vulnerabilities': vulnerabilities, 'compliance_score': avg_score
-        }), 200
-
+        result = _run_full_scan(extract_path, file.filename, user['uid'])
+        return jsonify(result), 200
     except ValueError as ve:
         return jsonify({'error': str(ve)}), 400
     except zipfile.BadZipFile:
         return jsonify({'error': 'Invalid ZIP file'}), 400
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+@app.post("/scan/url")
+@limiter.limit("20 per hour")
+def scan_url():
+    """Real GitHub URL / server-local-path scanning — previously the
+    'Option 1' field in the UI was collected but never sent anywhere."""
+    user, error_response, status = get_user_from_token()
+    if error_response:
+        return error_response, status
+
+    data = request.json or {}
+    source = (data.get('source') or '').strip()
+    if not source:
+        return jsonify({'error': 'No source URL or path provided'}), 400
+
+    temp_dir = tempfile.mkdtemp()
+    try:
+        scan_path = resolve_scan_source(source, temp_dir)
+        result = _run_full_scan(scan_path, source, user['uid'])
+        return jsonify(result), 200
+    except ValueError as ve:
+        return jsonify({'error': str(ve)}), 400
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)
 
@@ -667,7 +843,7 @@ def threats_publish():
         row    = conn.execute("SELECT id FROM tenants WHERE id=? OR email=?",
                               (tenant_id, user.get('email'))).fetchone()
         conn.close()
-        tenant_db_id = row['id'] if row else 1
+        tenant_db_id = row['id'] if row else tenant_id
     else:
         tenant_db_id = tenant_id
     from threat_sharing import publish_threat
@@ -689,8 +865,8 @@ def threats_list():
 def health():
     return jsonify({
         'status': 'ok', 'product': 'MythosShield',
-        'version': '2.2.0',
-        'build_fingerprint': 'CORS_CREDENTIALS_FIX_JUN30',
+        'version': '2.3.0',
+        'build_fingerprint': 'REAL_SCAN_DATA_FIX',
         'firebase_connected': firebase_initialized,
         'debug_mode': DEBUG_MODE
     }), 200
