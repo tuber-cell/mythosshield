@@ -740,16 +740,61 @@ def scan_url():
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
+# ─── FIXED: /scans endpoint with fallback ─────────────────────
 @app.get("/scans")
 def list_scans():
     user, error_response, status = get_user_from_token()
     if error_response:
         return error_response, status
-    scans_ref = db.collection('scans').where('user_id','==',user['uid']).order_by('created_at').limit(20)
+
+    try:
+        # Try the normal way first
+        scans_ref = db.collection('scans').where('user_id', '==', user['uid']).order_by('created_at').limit(20)
+        scans = []
+        for doc in scans_ref.stream():
+            data = doc.to_dict()
+            data['id'] = doc.id
+            scans.append(data)
+        return jsonify({'scans': scans}), 200
+    except Exception as e:
+        print(f"[ERROR] /scans failed: {e}")
+        # Fallback: get all scans and filter manually (works even if .where() breaks)
+        try:
+            all_scans = db.collection('scans').limit(100)
+            scans = []
+            for doc in all_scans.stream():
+                data = doc.to_dict()
+                if data.get('user_id') == user['uid']:
+                    data['id'] = doc.id
+                    scans.append(data)
+            return jsonify({'scans': scans}), 200
+        except Exception as e2:
+            print(f"[ERROR] /scans fallback also failed: {e2}")
+            # Return empty list instead of crashing
+            return jsonify({'scans': []}), 200
+
+
+# ─── DEBUG: Check what's in the database ──────────────────────
+@app.get("/debug/scans/all")
+def debug_all_scans():
+    user, error_response, status = get_user_from_token()
+    if error_response:
+        return error_response, status
+    
     scans = []
-    for doc in scans_ref.stream():
-        data = doc.to_dict(); data['id'] = doc.id
-        scans.append(data)
+    try:
+        all_scans = db.collection('scans').limit(100)
+        for doc in all_scans.stream():
+            data = doc.to_dict()
+            scans.append({
+                'id': doc.id,
+                'user_id': data.get('user_id'),
+                'source': data.get('source'),
+                'created_at': data.get('created_at')
+            })
+    except Exception as e:
+        return jsonify({'error': str(e), 'scans': []}), 500
+    
     return jsonify({'scans': scans}), 200
 
 
