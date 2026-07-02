@@ -65,6 +65,7 @@ nav { padding: 12px 0; flex: 1; }
 .badge-medium { background: rgba(255,215,0,.12); color: #ffd700; }
 .badge-low { background: rgba(46,213,115,.12); color: var(--info); }
 .badge-ok { background: rgba(0,229,160,.12); color: var(--accent); }
+.badge-advisory { background: rgba(0,102,255,.15); color: var(--accent2); }
 .section-title { font-family: var(--mono); font-size: 11px; text-transform: uppercase; color: var(--muted); margin-bottom: 16px; }
 h1 { font-size: 22px; font-weight: 600; margin-bottom: 4px; }
 .page-sub { color: var(--muted); font-size: 13px; margin-bottom: 28px; }
@@ -207,8 +208,9 @@ td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--te
       <div class="card" style="max-width:560px">
         <div class="section-title">Scan Target</div>
         <div class="form-group">
-          <label>Option 1: GitHub URL or Local Folder Path</label>
-          <input type="text" id="scan-source" placeholder="https://github.com/your-org/your-app  or  /path/to/folder">
+          <label>Option 1: GitHub URL or Server-Local Folder Path</label>
+          <input type="text" id="scan-source" placeholder="https://github.com/your-org/your-app">
+          <small style="color:var(--muted);display:block;margin-top:5px">GitHub URLs are cloned and scanned live. A local folder path only works if this backend runs on the same machine as that folder (self-hosted setups) — a hosted backend can't reach a path on your laptop.</small>
         </div>
         <div class="form-group">
           <label>Option 2: Upload ZIP File</label>
@@ -222,11 +224,11 @@ td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--te
         <hr class="divider">
         <div class="section-title">What this scan does</div>
         <div style="font-size:13px;color:var(--muted);line-height:1.8">
-          1. Parses requirements.txt and package.json to build SBOM<br>
-          2. Scans for AI model files (.pt, .h5, .onnx, .pkl…) for AIBOM<br>
-          3. Queries NVD API for known CVEs in each component<br>
-          4. Scores vulnerabilities by exploit type (RCE, priv esc, DoS…)<br>
-          5. Calculates CERT-In compliance score
+          1. Parses requirements.txt and package.json to build a real SBOM<br>
+          2. Scans for AI model files (.pt, .h5, .onnx, .pkl…) for the AIBOM<br>
+          3. Queries <a href="https://osv.dev" target="_blank" rel="noopener" style="color:var(--accent)">OSV.dev</a> live for every exact component/version — the same open vulnerability database tools like Dependabot use<br>
+          4. Severity comes from each advisory's own published data — nothing is invented if a component turns out clean<br>
+          5. Calculates a CERT-In compliance score from real, verifiable signals only
         </div>
       </div>
     </div>
@@ -249,6 +251,7 @@ td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--te
         <button class="btn btn-ghost btn-sm" onclick="exportCompliancePDF()">↓ Export PDF</button>
       </div>
       <div id="compliance-content"><div class="empty">Select a scan to generate compliance reports</div></div>
+      <p style="font-size:11px;color:var(--muted);margin-top:16px;max-width:640px">Checks marked <span class="badge badge-advisory" style="font-size:9px;padding:1px 5px">HEURISTIC</span> are a keyword search over component names and file paths — a real signal, but a starting point for review, not a verified audit finding.</p>
     </div>
 
     <div id="page-shadow" style="display:none">
@@ -500,7 +503,6 @@ async function loadDashboard() {
       ['m-score','m-components','m-critical','m-models'].forEach(id => document.getElementById(id).textContent='—');
       return;
     }
-    // ✅ FIXED: was .join('')); — extra ) caused entire script to crash
     document.getElementById('recent-scans').innerHTML = scans.slice(0,5).map(s => `
       <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px">
         <div style="font-family:var(--mono);color:var(--text)">#${sanitizeHTML(String(s.id))} ${sanitizeHTML(s.source||'Unknown')}</div>
@@ -524,44 +526,56 @@ async function loadDashboard() {
 
 async function startScan() {
   const zipFile = document.getElementById('scan-zip')?.files[0];
-  if (!zipFile) { toast('Please upload a ZIP file to scan', 'error'); return; }
-  if (zipFile.size > 16 * 1024 * 1024) { toast('File too large — max 16MB', 'error'); return; }
+  const source = document.getElementById('scan-source')?.value.trim();
+
+  if (!zipFile && !source) { toast('Enter a GitHub URL/path or upload a ZIP file', 'error'); return; }
+  if (zipFile && zipFile.size > 16 * 1024 * 1024) { toast('File too large — max 16MB', 'error'); return; }
 
   document.getElementById('scan-btn-text').innerHTML = '<span class="loading"></span> Scanning…';
-  document.getElementById('scan-status').textContent = 'Uploading and scanning... (may take 30s)';
+  document.getElementById('scan-status').textContent = zipFile
+    ? 'Uploading and scanning... (may take 30s)'
+    : 'Cloning and scanning... (may take up to 60s)';
 
   try {
-    // Always get fresh token
     const user = auth.currentUser;
     let idToken = 'demo-token';
-    if (user) {
-      try { idToken = await user.getIdToken(true); } catch(e) { console.warn('Token refresh failed', e); }
-    }
+    if (user) { try { idToken = await user.getIdToken(true); } catch(e) { console.warn('Token refresh failed', e); } }
 
-    const formData = new FormData();
-    formData.append('file', zipFile);
-
-    // 90 second timeout for slow backends
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 90000);
 
-    const r = await fetch(`${API}/scan/upload`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${idToken}` },
-      body: formData,
-      signal: controller.signal
-    });
+    let r;
+    if (zipFile) {
+      const formData = new FormData();
+      formData.append('file', zipFile);
+      r = await fetch(`${API}/scan/upload`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${idToken}` },
+        body: formData,
+        signal: controller.signal
+      });
+    } else {
+      // Previously this branch didn't exist at all — the URL/path field
+      // was collected but silently discarded, and startScan() always
+      // demanded a ZIP even if a source string was provided.
+      r = await fetch(`${API}/scan/url`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+        body: JSON.stringify({ source }),
+        signal: controller.signal
+      });
+    }
     clearTimeout(timeoutId);
 
     if (!r.ok) {
-      let errMsg = 'Upload failed';
+      let errMsg = 'Scan failed';
       try { const d = await r.json(); errMsg = d.error || errMsg; } catch(e) {}
       throw new Error(errMsg);
     }
 
     const response = await r.json();
     const scanId = response.scan_id || response.id || Date.now();
-    scans.unshift({ id: scanId, source: zipFile.name, created_at: new Date().toISOString() });
+    scans.unshift({ id: scanId, source: zipFile ? zipFile.name : source, created_at: new Date().toISOString() });
     document.getElementById('scan-status').textContent = 'Scan completed!';
     toast('Scan #' + scanId + ' complete!', 'success');
     document.getElementById('scan-source').value = '';
@@ -611,12 +625,15 @@ async function loadScanResult() {
       data.aibom.models.forEach(m => { html += `<tr><td>${sanitizeHTML(m.name)}</td><td>${sanitizeHTML(m.format)}</td><td>${(m.size_bytes/1024).toFixed(2)} KB</td></tr>`; });
       html += '</tbody></table></div>';
     }
-    html += '<div class="card"><div class="section-title">Vulnerabilities</div>';
+    html += '<div class="card"><div class="section-title">Vulnerabilities <span style="font-weight:400;color:var(--muted);text-transform:none;font-family:var(--sans)">— live from OSV.dev</span></div>';
     if (data.vulnerabilities?.length) {
-      html += '<table><thead><tr><th>CVE ID</th><th>Component</th><th>Severity</th><th>Peer Intel</th><th>Remediation</th></tr></thead><tbody>';
+      html += '<table><thead><tr><th>ID</th><th>Component</th><th>Severity</th><th>Peer Intel</th><th>Remediation</th></tr></thead><tbody>';
       data.vulnerabilities.forEach(v => {
         const pr=v.peer_reports||0;
-        html += `<tr><td><strong style="font-family:var(--mono)">${sanitizeHTML(v.cve_id)}</strong></td><td>${sanitizeHTML(v.component)} (v${sanitizeHTML(v.version||'N/A')})</td><td><span class="badge badge-${sanitizeHTML((v.severity||'low').toLowerCase())}">${sanitizeHTML(v.severity)}</span></td><td>${pr>0?`<span class="badge badge-critical">⚠️ ${pr} peer${pr>1?'s':''}</span>`:'<span class="badge badge-low">None</span>'}</td><td style="font-size:12px;color:var(--muted)">${sanitizeHTML(v.remediation||'N/A')}</td></tr>`;
+        const idCell = v.is_advisory
+          ? `<span class="badge badge-advisory">ADVISORY</span> <strong style="font-family:var(--mono)">${sanitizeHTML(v.cve_id)}</strong>`
+          : `<strong style="font-family:var(--mono)">${v.source_url ? `<a href="${sanitizeHTML(v.source_url)}" target="_blank" rel="noopener" style="color:inherit">${sanitizeHTML(v.cve_id)}</a>` : sanitizeHTML(v.cve_id)}</strong>`;
+        html += `<tr><td>${idCell}</td><td>${sanitizeHTML(v.component)} (v${sanitizeHTML(v.version||'N/A')})</td><td><span class="badge badge-${sanitizeHTML((v.severity||'low').toLowerCase())}">${sanitizeHTML(v.severity)}</span></td><td>${pr>0?`<span class="badge badge-critical">⚠️ ${pr} peer${pr>1?'s':''}</span>`:'<span class="badge badge-low">None</span>'}</td><td style="font-size:12px;color:var(--muted)">${sanitizeHTML(v.remediation||'N/A')}</td></tr>`;
       });
       html += '</tbody></table>';
     } else { html += '<div class="empty">No vulnerabilities found</div>'; }
@@ -636,9 +653,16 @@ async function loadCompliance() {
       const sc=report.score_pct>=80?'badge-ok':report.score_pct>=50?'badge-high':'badge-critical';
       html += `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><h3 style="margin:0;font-size:16px;font-family:var(--mono)">${sanitizeHTML(report.regulation)}</h3><span class="badge ${sc}">${sanitizeHTML(report.status)} (${sanitizeHTML(String(report.score_pct))}%)</span></div><div style="background:var(--surface2);height:6px;border-radius:3px;margin-bottom:20px;overflow:hidden"><div style="background:var(--accent);height:100%;width:${report.score_pct}%"></div></div><div class="section-title">Gap Analysis</div><div>`;
       report.checks.forEach(c => {
-        html += `<div class="check-item"><div class="check-icon ${c.passed?'check-pass':'check-fail'}">${c.passed?'✓':'✗'}</div><div class="check-text"><strong>${sanitizeHTML(c.item)}</strong>${!c.passed&&c.gap?`<div class="check-gap">⚠️ ${sanitizeHTML(c.gap)}</div>`:''}${!c.passed&&c.action?`<div style="font-size:11px;color:var(--muted);margin-top:2px">💡 ${sanitizeHTML(c.action)}</div>`:''}</div></div>`;
+        const heur = c.heuristic ? '<span class="badge badge-advisory" style="font-size:9px;padding:1px 5px;margin-left:6px">HEURISTIC</span>' : '';
+        html += `<div class="check-item"><div class="check-icon ${c.passed?'check-pass':'check-fail'}">${c.passed?'✓':'✗'}</div><div class="check-text"><strong>${sanitizeHTML(c.item)}</strong>${heur}${!c.passed&&c.gap?`<div class="check-gap">⚠️ ${sanitizeHTML(c.gap)}</div>`:''}${!c.passed&&c.action?`<div style="font-size:11px;color:var(--muted);margin-top:2px">💡 ${sanitizeHTML(c.action)}</div>`:''}</div></div>`;
       });
-      html += '</div></div>';
+      html += '</div>';
+      if (report.platform_assurances?.length) {
+        html += `<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)"><div class="section-title" style="margin-bottom:10px">Platform Assurances <span style="font-weight:400;text-transform:none;font-family:var(--sans);color:var(--muted)">— about MythosShield itself, not this scan</span></div>`;
+        report.platform_assurances.forEach(a => { html += `<div style="font-size:12px;color:var(--muted);margin-bottom:6px">🔒 ${sanitizeHTML(a)}</div>`; });
+        html += '</div>';
+      }
+      html += '</div>';
     }
     html += '</div>';
     document.getElementById('compliance-content').innerHTML = html;
@@ -698,7 +722,7 @@ async function loadThreatsFeed() {
   try {
     const data=await apiFetch('/threats');
     const threats=data.threats||[];
-    if (!threats.length) { feedDiv.innerHTML='<div class="empty">No threats reported yet.</div>'; return; }
+    if (!threats.length) { feedDiv.innerHTML='<div class="empty">No threats reported yet — be the first to share one.</div>'; return; }
     feedDiv.innerHTML='<div style="display:flex;flex-direction:column;gap:12px">'+threats.map(t=>`
       <div class="check-item" style="border-bottom:1px solid var(--border);padding-bottom:12px">
         <div class="check-text">

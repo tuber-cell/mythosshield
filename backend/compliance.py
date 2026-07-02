@@ -2,11 +2,31 @@
 MythosShield — Compliance Report Generator
 Produces gap analysis reports for DPDPA, SEBI, BIS, and RBI DPIP.
 
-FIXED: All checks now inspect real scan signals (SBOM, AIBOM, vulnerabilities,
-component names, file paths) instead of being hardcoded to fail.
-"""
+Every check below falls into exactly one of two honest categories:
 
-import re
+  1. HARD SIGNAL  — computed directly from real scan data (vulnerability
+     counts/severities from OSV.dev, SBOM/AIBOM component counts). These
+     are as reliable as the underlying scan.
+
+  2. HEURISTIC    — a keyword search across component names and file
+     paths (e.g. does anything look like "consent", "fairlearn",
+     "runbook"). These are real signals (nothing is invented), but they
+     are a weak proxy: a compliant control with an unmatched name reads
+     as a gap, and an unrelated file with a matching name reads as a
+     pass. Every heuristic check is tagged "heuristic": True so the UI
+     can visibly flag it as a starting point for manual review, not a
+     verified finding.
+
+Two things that were previously in here have been removed entirely:
+  - A DPDPA "AI component inventory" check whose passing condition was
+    `len(x) >= 0`, which is true for any list and therefore could never
+    fail. It wasn't testing anything.
+  - An RBI "Anonymisation of shared intelligence" check hardcoded to
+    `True`. That's a true statement about the platform's own
+    architecture, not something derived from the scanned codebase, so
+    it doesn't belong mixed into a per-scan pass/fail list where it
+    silently inflated every bank's score.
+"""
 
 
 def _status(passed, total):
@@ -18,9 +38,10 @@ def _status(passed, total):
     return "Non-Compliant", round(pct)
 
 
-# ── REAL CODEBASE SIGNAL DETECTION ─────────────────────────────
-# Scans component names + file paths from SBOM/AIBOM for real evidence
-# instead of pretending to check things we never look at.
+# ── REAL CODEBASE SIGNAL DETECTION (heuristic) ─────────────────
+# Scans component names + file paths from SBOM/AIBOM for real evidence.
+# This is a keyword search, not static/dynamic analysis — see module
+# docstring for what that does and doesn't mean.
 
 def _component_names(scan_data):
     sbom = scan_data.get("sbom", {})
@@ -55,6 +76,12 @@ INCIDENT_KEYWORDS  = ["runbook", "playbook", "incident-response", "pagerduty", "
 PENTEST_KEYWORDS   = ["owasp-zap", "burpsuite", "pentest", "penetration-test", "security-scan"]
 DATA_MIN_KEYWORDS  = ["data-minimisation", "data-minimization", "pii-scrubber", "anonymiz"]
 
+METHODOLOGY_NOTE = (
+    "Checks marked HEURISTIC are a keyword search over component names and file "
+    "paths, not a manual or automated audit. Treat a heuristic pass/fail as a "
+    "starting point for review, not a verified compliance finding."
+)
+
 
 def generate_dpdpa_report(scan_data):
     """Digital Personal Data Protection Act 2023 readiness."""
@@ -70,31 +97,29 @@ def generate_dpdpa_report(scan_data):
         {
             "item": "72-hour breach notification readiness",
             "passed": critical == 0,
+            "heuristic": False,
             "gap": "Critical vulnerabilities detected — breach notification timeline at risk" if critical else None,
             "action": "Remediate all critical CVEs immediately" if critical else None
         },
         {
             "item": "Software inventory (data processor mapping)",
             "passed": len(components) > 0,
+            "heuristic": False,
             "gap": "No SBOM generated — cannot map data processors" if not components else None,
             "action": "Run full SBOM scan on all production services" if not components else None
         },
         {
-            "item": "AI component inventory (AIBOM)",
-            "passed": len(scan_data.get("aibom", {}).get("models", [])) >= 0,
-            "gap": None,
-            "action": None
-        },
-        {
             "item": "Consent management documentation",
             "passed": has_consent,
-            "gap": None if has_consent else "No consent management library/module evidence found in codebase scan",
+            "heuristic": True,
+            "gap": None if has_consent else "No consent management library/module name matched in codebase scan",
             "action": None if has_consent else "Implement consent management module and document data flows"
         },
         {
             "item": "Data minimisation compliance",
             "passed": has_data_min,
-            "gap": None if has_data_min else "No data minimisation tooling detected — cannot auto-verify from SBOM alone",
+            "heuristic": True,
+            "gap": None if has_data_min else "No data minimisation tooling name matched — cannot auto-verify from SBOM alone",
             "action": None if has_data_min else "Conduct manual data flow review with DPO"
         },
     ]
@@ -103,7 +128,8 @@ def generate_dpdpa_report(scan_data):
     gaps    = [c for c in checks if not c["passed"] and c["gap"]]
     actions = [c["action"] for c in checks if not c["passed"] and c["action"]]
     return {"regulation": "DPDPA 2023", "status": status, "score_pct": pct,
-            "checks": checks, "gaps": gaps, "recommended_actions": actions}
+            "checks": checks, "gaps": gaps, "recommended_actions": actions,
+            "methodology_note": METHODOLOGY_NOTE}
 
 
 def generate_sebi_report(scan_data):
@@ -111,36 +137,40 @@ def generate_sebi_report(scan_data):
     vulns = scan_data.get("vulnerabilities", [])
     high_or_critical = sum(1 for v in vulns if v.get("severity", "").lower() in ("critical", "high"))
     components = scan_data.get("sbom", {}).get("artifacts", [])
-    has_pentest = _has_signal(scan_data, PENTEST_KEYWORDS)
 
     checks = [
         {
             "item": "Vulnerability assessment completed",
             "passed": len(components) > 0,
+            "heuristic": False,
             "gap": "No components scanned" if not components else None,
             "action": "Run SBOM + vulnerability scan on all trading systems" if not components else None
         },
         {
             "item": "Critical/high vulnerabilities patched",
             "passed": high_or_critical == 0,
+            "heuristic": False,
             "gap": f"{high_or_critical} critical/high CVEs unpatched" if high_or_critical else None,
             "action": "Apply vendor patches within 30 days per SEBI mandate" if high_or_critical else None
         },
         {
             "item": "Audit trail completeness",
             "passed": len(components) > 0,
+            "heuristic": False,
             "gap": "No component inventory to build an audit trail from" if not components else None,
             "action": "Run a scan to generate SBOM-based audit trail" if not components else None
         },
         {
             "item": "Patch management timeline documented",
             "passed": high_or_critical == 0,
+            "heuristic": False,
             "gap": "Unpatched vulnerabilities violate 30-day patch SLA" if high_or_critical else None,
             "action": "Create patch schedule and assign owners" if high_or_critical else None
         },
         {
             "item": "Third-party risk assessment",
             "passed": len(components) > 0,
+            "heuristic": False,
             "gap": "Cannot assess third-party risk without component inventory" if not components else None,
             "action": "Generate SBOM for all vendor integrations" if not components else None
         },
@@ -150,7 +180,8 @@ def generate_sebi_report(scan_data):
     gaps    = [c for c in checks if not c["passed"] and c["gap"]]
     actions = [c["action"] for c in checks if not c["passed"] and c["action"]]
     return {"regulation": "SEBI CSCRF", "status": status, "score_pct": pct,
-            "checks": checks, "gaps": gaps, "recommended_actions": actions}
+            "checks": checks, "gaps": gaps, "recommended_actions": actions,
+            "methodology_note": METHODOLOGY_NOTE}
 
 
 def generate_bis_report(scan_data):
@@ -166,31 +197,36 @@ def generate_bis_report(scan_data):
         {
             "item": "AI model inventory exists",
             "passed": len(models) > 0,
-            "gap": "No AI models found — if AI is in use, AIBOM scan is incomplete" if not models else None,
-            "action": "Run AIBOM scan on all model repositories" if not models else None
+            "heuristic": False,
+            "gap": "No AI model files (.pt/.h5/.onnx/.pkl/etc.) found in this codebase" if not models else None,
+            "action": "If AI is used elsewhere (e.g. via API, not bundled model files), document it manually — this scan only detects local model artifacts" if not models else None
         },
         {
             "item": "Model checksums/hashes recorded",
             "passed": bool(models) and all(m.get("size_bytes", 0) > 0 for m in models),
+            "heuristic": False,
             "gap": "No AI models detected to verify integrity for" if not models else None,
             "action": "Ensure all model files are stored with checksums" if not models else None
         },
         {
             "item": "Bias audit documentation",
             "passed": has_bias_audit,
-            "gap": None if has_bias_audit else "No bias audit tooling (fairlearn/aif360) detected",
+            "heuristic": True,
+            "gap": None if has_bias_audit else "No bias audit tooling name (fairlearn/aif360/etc.) matched",
             "action": None if has_bias_audit else "Commission bias testing report for each production AI model"
         },
         {
             "item": "Functional erasure capability",
             "passed": has_erasure,
-            "gap": None if has_erasure else "No erasure mechanism detected in codebase",
+            "heuristic": True,
+            "gap": None if has_erasure else "No erasure mechanism name matched in codebase",
             "action": None if has_erasure else "Implement model rollback and data erasure procedures"
         },
         {
             "item": "Audit trail for AI decisions",
             "passed": has_audit_log,
-            "gap": None if has_audit_log else "AI decision logging/explainability tooling not detected",
+            "heuristic": True,
+            "gap": None if has_audit_log else "AI decision logging/explainability tooling name not matched",
             "action": None if has_audit_log else "Implement explainability logging for all AI-driven decisions"
         },
     ]
@@ -199,7 +235,8 @@ def generate_bis_report(scan_data):
     gaps    = [c for c in checks if not c["passed"] and c["gap"]]
     actions = [c["action"] for c in checks if not c["passed"] and c["action"]]
     return {"regulation": "BIS AI Data Quality", "status": status, "score_pct": pct,
-            "checks": checks, "gaps": gaps, "recommended_actions": actions}
+            "checks": checks, "gaps": gaps, "recommended_actions": actions,
+            "methodology_note": METHODOLOGY_NOTE}
 
 
 def generate_rbi_dpip_report(scan_data):
@@ -214,25 +251,22 @@ def generate_rbi_dpip_report(scan_data):
         {
             "item": "Real-time fraud intelligence sharing readiness",
             "passed": critical == 0,
+            "heuristic": False,
             "gap": "Critical vulnerabilities undermine system trustworthiness for fraud sharing" if critical else None,
             "action": "Patch all critical vulnerabilities before onboarding to DPIP" if critical else None
         },
         {
-            "item": "Anonymisation of shared intelligence",
-            "passed": True,  # MythosShield's own threat-sharing layer always SHA-256 anonymises — verified in code
-            "gap": None,
-            "action": None
-        },
-        {
             "item": "API security for DPIP integration",
             "passed": has_pentest,
-            "gap": None if has_pentest else "No API penetration testing tooling detected from SBOM alone",
+            "heuristic": True,
+            "gap": None if has_pentest else "No API penetration testing tooling name matched from SBOM alone",
             "action": None if has_pentest else "Conduct API penetration test against DPIP integration endpoints"
         },
         {
             "item": "Incident response SLA (< 30 min)",
             "passed": has_incident,
-            "gap": None if has_incident else "No incident response playbook/runbook detected",
+            "heuristic": True,
+            "gap": None if has_incident else "No incident response playbook/runbook name matched",
             "action": None if has_incident else "Document and test incident response runbooks with < 30 min target"
         },
     ]
@@ -241,7 +275,18 @@ def generate_rbi_dpip_report(scan_data):
     gaps    = [c for c in checks if not c["passed"] and c["gap"]]
     actions = [c["action"] for c in checks if not c["passed"] and c["action"]]
     return {"regulation": "RBI DPIP", "status": status, "score_pct": pct,
-            "checks": checks, "gaps": gaps, "recommended_actions": actions}
+            "checks": checks, "gaps": gaps, "recommended_actions": actions,
+            "methodology_note": METHODOLOGY_NOTE,
+            # This is a true statement about MythosShield's own platform (the
+            # threat-sharing feed SHA-256-anonymises tenant IDs — see
+            # threat_sharing.py) but it is NOT derived from the scanned repo,
+            # so it's surfaced separately rather than counted as a per-scan
+            # pass/fail that would inflate every bank's score identically.
+            "platform_assurances": [
+                "MythosShield's threat-sharing feed anonymises the submitting "
+                "tenant with a salted SHA-256 hash before any report is shown "
+                "to other tenants."
+            ]}
 
 
 def generate_all_reports(scan_data):
