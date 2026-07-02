@@ -607,13 +607,21 @@ async function startScan() {
 
     const response = await r.json();
     const scanId = response.scan_id || response.id || Date.now();
-    scans.unshift({ id: scanId, source: zipFile ? zipFile.name : source, created_at: new Date().toISOString() });
+
+    // ── UPDATE SCANS ARRAY ──────────────────────────────────
+    const newScan = { 
+      id: scanId, 
+      source: zipFile ? zipFile.name : source, 
+      created_at: new Date().toISOString() 
+    };
+    scans.unshift(newScan);
+
     document.getElementById('scan-status').textContent = 'Scan completed!';
     toast('Scan #' + scanId + ' complete!', 'success');
     document.getElementById('scan-source').value = '';
     document.getElementById('scan-zip').value = '';
 
-    // ── FORCE DASHBOARD REFRESH ─────────────────────────────
+    // ── FORCE DASHBOARD & DROPDOWN REFRESH ──────────────────
     await loadDashboard();
     populateScanDropdowns();
 
@@ -629,13 +637,35 @@ async function startScan() {
   }
 }
 
+// ─── FIXED: populateScanDropdowns with cache-busting ──────────
 async function populateScanDropdowns() {
-  if (!scans.length) { try { const r=await apiFetch('/scans'); scans=r.scans||[]; } catch(e){scans=[];} }
-  ['scan-select','comp-scan-select'].forEach(id => {
-    const sel = document.getElementById(id); if (!sel) return;
+  // ── FORCE REFRESH ──────────────────────────────────────────
+  const cacheBuster = Date.now();
+  try {
+    const r = await apiFetch('/scans?_=' + cacheBuster);
+    scans = r.scans || [];
+  } catch(e) {
+    scans = [];
+  }
+
+  ['scan-select', 'comp-scan-select'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
     const existing = sel.value;
-    sel.innerHTML = '<option value="">Select a scan…</option>' + scans.map(s=>`<option value="${sanitizeHTML(String(s.id))}">#${sanitizeHTML(String(s.id))} — ${sanitizeHTML((s.source||'Unknown').split('/').pop())}</option>`).join('');
-    if (existing && scans.find(s=>s.id==existing)) sel.value=existing;
+    sel.innerHTML = '<option value="">Select a scan…</option>';
+    
+    if (scans.length) {
+      scans.forEach(s => {
+        const option = document.createElement('option');
+        option.value = sanitizeHTML(String(s.id));
+        option.textContent = `#${sanitizeHTML(String(s.id))} — ${sanitizeHTML((s.source || 'Unknown').split('/').pop())}`;
+        sel.appendChild(option);
+      });
+      // Re-select the previously selected option if it still exists
+      if (existing && scans.some(s => String(s.id) === existing)) {
+        sel.value = existing;
+      }
+    }
   });
 }
 
@@ -827,7 +857,6 @@ async function apiFetch(path, method='GET', body=null) {
   if (!r.ok) throw new Error(d.error||'API error');
   return d;
 }
-
 
 // ── SECURITY: XSS sanitizer ──────────────────────────────────
 function sanitizeHTML(str) {
