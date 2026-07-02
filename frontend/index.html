@@ -494,33 +494,68 @@ function showPage(name) {
   if (name==='threats') loadThreatsFeed();
 }
 
+// ─── FIXED: loadDashboard with cache-busting and regulatory status ──────────
 async function loadDashboard() {
+  // ── FORCE REFRESH ──────────────────────────────────────────
+  const cacheBuster = Date.now();
   try {
-    const r = await apiFetch('/scans');
+    const r = await apiFetch('/scans?_=' + cacheBuster);
     scans = r.scans || [];
-    if (!scans.length) {
-      document.getElementById('recent-scans').innerHTML = '<div class="empty">No scans yet — run your first scan</div>';
-      ['m-score','m-components','m-critical','m-models'].forEach(id => document.getElementById(id).textContent='—');
-      return;
-    }
-    document.getElementById('recent-scans').innerHTML = scans.slice(0,5).map(s => `
-      <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px">
-        <div style="font-family:var(--mono);color:var(--text)">#${sanitizeHTML(String(s.id))} ${sanitizeHTML(s.source||'Unknown')}</div>
-        <div style="color:var(--muted)">${sanitizeHTML((s.created_at||'').slice(0,10))}</div>
-      </div>`).join('');
-    if (scans.length > 0) {
-      try {
-        const last = await apiFetch(`/scan/${scans[0].id}`);
-        document.getElementById('m-score').textContent = (last.compliance_score||0)+'%';
-        document.getElementById('m-components').textContent = last.sbom?.artifacts?.length||0;
-        document.getElementById('m-critical').textContent = last.vulnerabilities?.filter(v=>v.severity?.toLowerCase()==='critical').length||0;
-        document.getElementById('m-models').textContent = last.aibom?.model_count||0;
-      } catch(e) {
-        ['m-score','m-components','m-critical','m-models'].forEach(id => document.getElementById(id).textContent='—');
-      }
+  } catch(e) {
+    scans = [];
+    document.getElementById('recent-scans').innerHTML = 
+      '<div class="empty">Failed to load scans — backend may be sleeping. Try again.</div>';
+    ['m-score','m-components','m-critical','m-models'].forEach(id => 
+      document.getElementById(id).textContent = '—'
+    );
+    return;
+  }
+
+  // ── UPDATE RECENT SCANS ────────────────────────────────────
+  if (!scans.length) {
+    document.getElementById('recent-scans').innerHTML = 
+      '<div class="empty">No scans yet — run your first scan</div>';
+    ['m-score','m-components','m-critical','m-models'].forEach(id => 
+      document.getElementById(id).textContent = '—'
+    );
+    // Reset regulatory status
+    document.getElementById('reg-status').innerHTML = 
+      '<div class="check-item"><div class="check-icon check-fail">✕</div><div class="check-text">Run a scan to assess compliance</div></div>';
+    return;
+  }
+
+  // Show last 5 scans
+  document.getElementById('recent-scans').innerHTML = scans.slice(0,5).map(s => `
+    <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px">
+      <div style="font-family:var(--mono);color:var(--text)">#${sanitizeHTML(String(s.id))} ${sanitizeHTML(s.source||'Unknown')}</div>
+      <div style="color:var(--muted)">${sanitizeHTML((s.created_at||'').slice(0,10))}</div>
+    </div>
+  `).join('');
+
+  // ── LOAD LATEST SCAN FOR METRICS ──────────────────────────
+  try {
+    const last = await apiFetch(`/scan/${scans[0].id}?_=${cacheBuster}`);
+    document.getElementById('m-score').textContent = (last.compliance_score||0) + '%';
+    document.getElementById('m-components').textContent = last.sbom?.artifacts?.length||0;
+    document.getElementById('m-critical').textContent = last.vulnerabilities?.filter(v => 
+      v.severity?.toLowerCase() === 'critical'
+    ).length || 0;
+    document.getElementById('m-models').textContent = last.aibom?.model_count||0;
+
+    // ── UPDATE REGULATORY STATUS ─────────────────────────────
+    const regStatus = document.getElementById('reg-status');
+    const score = last.compliance_score || 0;
+    if (score >= 80) {
+      regStatus.innerHTML = `<div class="check-item"><div class="check-icon check-pass">✓</div><div class="check-text"><strong>Compliant</strong> — Score ${score}%</div></div>`;
+    } else if (score >= 50) {
+      regStatus.innerHTML = `<div class="check-item"><div class="check-icon" style="background:rgba(255,165,2,.2);color:var(--warn)">⚠</div><div class="check-text"><strong>Partially Compliant</strong> — Score ${score}%</div></div>`;
+    } else {
+      regStatus.innerHTML = `<div class="check-item"><div class="check-icon check-fail">✕</div><div class="check-text"><strong>Non-Compliant</strong> — Score ${score}% — Review gaps</div></div>`;
     }
   } catch(e) {
-    document.getElementById('recent-scans').innerHTML = '<div class="empty">No scans yet — run your first scan</div>';
+    ['m-score','m-components','m-critical','m-models'].forEach(id => 
+      document.getElementById(id).textContent = '—'
+    );
   }
 }
 
@@ -555,9 +590,6 @@ async function startScan() {
         signal: controller.signal
       });
     } else {
-      // Previously this branch didn't exist at all — the URL/path field
-      // was collected but silently discarded, and startScan() always
-      // demanded a ZIP even if a source string was provided.
       r = await fetch(`${API}/scan/url`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
@@ -580,7 +612,9 @@ async function startScan() {
     toast('Scan #' + scanId + ' complete!', 'success');
     document.getElementById('scan-source').value = '';
     document.getElementById('scan-zip').value = '';
-    loadDashboard();
+
+    // ── FORCE DASHBOARD REFRESH ─────────────────────────────
+    await loadDashboard();
     populateScanDropdowns();
 
   } catch(e) {
@@ -795,7 +829,7 @@ async function apiFetch(path, method='GET', body=null) {
 }
 
 
-// ── SECURITY: XSS sanitizer — always use this before inserting backend data into innerHTML
+// ── SECURITY: XSS sanitizer ──────────────────────────────────
 function sanitizeHTML(str) {
   if (str === null || str === undefined) return '';
   return String(str)
