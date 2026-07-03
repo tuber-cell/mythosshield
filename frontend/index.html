@@ -564,7 +564,8 @@ async function startScan() {
   const source = document.getElementById('scan-source')?.value.trim();
 
   if (!zipFile && !source) { toast('Enter a GitHub URL/path or upload a ZIP file', 'error'); return; }
-  if (zipFile && zipFile.size > 16 * 1024 * 1024) { toast('File too large — max 16MB', 'error'); return; }
+  // ── FIXED: 500MB limit ─────────────────────────────────────
+  if (zipFile && zipFile.size > 500 * 1024 * 1024) { toast('File too large — max 500MB', 'error'); return; }
 
   document.getElementById('scan-btn-text').innerHTML = '<span class="loading"></span> Scanning…';
   document.getElementById('scan-status').textContent = zipFile
