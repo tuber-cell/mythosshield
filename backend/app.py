@@ -27,8 +27,8 @@ except Exception:
 
 app = Flask(__name__)
 
-# ── 16MB upload size limit ─────────────────────────────────────
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
+# ── 500MB upload size limit ───────────────────────────────────
+app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024
 
 # ── DEBUG FLAG ───────────────────────────────────────────────────
 DEBUG_MODE = app.debug or os.environ.get('FLASK_ENV') == 'development'
