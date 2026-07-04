@@ -16,6 +16,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore, auth
 import bcrypt
 import requests
+import requests as req  # For webhooks
 
 from database import init_db, seed_demo, save_security_events, get_custom_endpoints
 
@@ -32,6 +33,31 @@ app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024
 
 # ── DEBUG FLAG ───────────────────────────────────────────────────
 DEBUG_MODE = app.debug or os.environ.get('FLASK_ENV') == 'development'
+
+
+# ─── WEBHOOK / SIEM SYSTEM ─────────────────────────────────────
+WEBHOOK_TARGETS = {
+    "splunk":  os.environ.get("SPLUNK_HEC_URL", ""),
+    "teams":   os.environ.get("TEAMS_WEBHOOK_URL", ""),
+    "slack":   os.environ.get("SLACK_WEBHOOK_URL", ""),
+    "generic": os.environ.get("GENERIC_WEBHOOK_URL", ""),
+}
+
+def fire_webhooks(event_type, payload):
+    """Send webhook notifications after scans and events."""
+    for name, url in WEBHOOK_TARGETS.items():
+        if not url:
+            continue
+        try:
+            req.post(url, json={
+                "source": "MythosShield",
+                "event": event_type,
+                "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                "data": payload
+            }, timeout=5, headers={"Content-Type": "application/json"})
+            print(f"[Webhook] Sent to {name}")
+        except Exception as e:
+            print(f"[Webhook] Failed to send to {name}: {e}")
 
 
 # ── CORS: allow all mythosshield*.vercel.app + localhost, WITH credentials ──
@@ -676,6 +702,18 @@ def _run_full_scan(scan_path, source_label, user_id):
     doc_ref = db.collection('scans').add(scan_data)
     scan_id = doc_ref[1].id
 
+    # ── Fire webhooks after scan ─────────────────────────────
+    fire_webhooks("scan_complete", {
+        "scan_id": scan_id,
+        "source": source_label,
+        "components_scanned": len(sbom.get("artifacts", [])),
+        "vulnerabilities_found": len(vulnerabilities),
+        "critical_count": sum(1 for v in vulnerabilities if v.get("severity") == "Critical"),
+        "high_count": sum(1 for v in vulnerabilities if v.get("severity") == "High"),
+        "compliance_score": avg_score,
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
+    })
+
     return {
         'scan_id': scan_id, 'sbom': sbom, 'aibom': aibom,
         'vulnerabilities': vulnerabilities, 'compliance_score': avg_score
@@ -796,6 +834,24 @@ def debug_all_scans():
         return jsonify({'error': str(e), 'scans': []}), 500
     
     return jsonify({'scans': scans}), 200
+
+
+# ─── AUDIT LOG ENDPOINT ───────────────────────────────────────
+@app.get("/audit-log")
+def audit_log():
+    user, error_response, status = get_user_from_token()
+    if error_response:
+        return error_response, status
+    
+    from database import get_connection
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT event_type, vendor, source_ip, username, risk_level, reason, created_at "
+        "FROM security_events WHERE tenant_id=? ORDER BY created_at DESC LIMIT 100",
+        (user["uid"],)
+    ).fetchall()
+    conn.close()
+    return jsonify({"events": [dict(r) for r in rows]})
 
 
 @app.get("/scan/<scan_id>")

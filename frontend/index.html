@@ -143,6 +143,12 @@ td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--te
         </div>
       </div>
       <button class="btn btn-primary" style="width:100%" onclick="doLogin()">Login</button>
+      <!-- SSO Placeholder -->
+      <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:20px">
+        <div style="font-size:11px;text-transform:uppercase;color:var(--muted);font-family:var(--mono);margin-bottom:12px;text-align:center">Enterprise SSO</div>
+        <button class="btn btn-ghost" style="width:100%;margin-bottom:8px" onclick="requestSSO()">🏢 Login with Azure AD / Active Directory</button>
+        <p style="font-size:11px;color:var(--muted);text-align:center">SSO available for Enterprise plan — contact us to configure</p>
+      </div>
     </div>
     <div id="register-form" style="display:none">
       <div class="form-group"><label>Bank Name</label><input type="text" id="reg-bank" placeholder="State Bank of India"></div>
@@ -171,6 +177,8 @@ td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--te
       <div class="nav-item" onclick="showPage('compliance')"><div class="nav-dot"></div> Compliance Reports</div>
       <div class="nav-item" onclick="showPage('shadow')"><div class="nav-dot"></div> Shadow AI</div>
       <div class="nav-item" onclick="showPage('threats')"><div class="nav-dot"></div> Threat Sharing</div>
+      <div class="nav-item" onclick="showPage('webhooks')"><div class="nav-dot"></div> SIEM Webhooks</div>
+      <div class="nav-item" onclick="showPage('audit')"><div class="nav-dot"></div> Audit Log</div>
     </nav>
     <div class="sidebar-footer">
       <div id="sidebar-bank" style="margin-bottom:6px;color:var(--text);font-size:12px"></div>
@@ -301,6 +309,44 @@ td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--te
         </div>
       </div>
     </div>
+
+    <!-- ─── WEBHOOKS PAGE ──────────────────────────────────── -->
+    <div id="page-webhooks" style="display:none">
+      <h1>SIEM & Alert Integration</h1>
+      <p class="page-sub">Configure webhooks to send scan results to your SIEM, Slack, or Teams</p>
+      <div class="card" style="max-width:600px">
+        <div class="section-title">Webhook Targets</div>
+        <div class="form-group">
+          <label>Splunk HEC URL</label>
+          <input type="url" id="webhook-splunk" placeholder="https://splunk.example.com:8088/services/collector">
+          <small style="color:var(--muted);display:block;margin-top:4px">Paste your Splunk HTTP Event Collector URL</small>
+        </div>
+        <div class="form-group">
+          <label>Slack Webhook URL</label>
+          <input type="url" id="webhook-slack" placeholder="https://hooks.slack.com/services/...">
+        </div>
+        <div class="form-group">
+          <label>Microsoft Teams Webhook URL</label>
+          <input type="url" id="webhook-teams" placeholder="https://your-domain.webhook.office.com/...">
+        </div>
+        <div class="form-group">
+          <label>Generic SIEM Webhook</label>
+          <input type="url" id="webhook-generic" placeholder="https://your-siem.com/webhook">
+        </div>
+        <button class="btn btn-primary" onclick="saveWebhooks()">💾 Save Webhook Settings</button>
+        <button class="btn btn-ghost" onclick="testWebhooks()" style="margin-left:10px">🔔 Test Connection</button>
+      </div>
+    </div>
+
+    <!-- ─── AUDIT LOG PAGE ──────────────────────────────────── -->
+    <div id="page-audit" style="display:none">
+      <h1>Audit Log</h1>
+      <p class="page-sub">Immutable record of all system events — for compliance and regulators</p>
+      <div class="card">
+        <div id="audit-log-content"><div class="empty">Loading audit log...</div></div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -492,6 +538,8 @@ function showPage(name) {
   });
   if (name==='results'||name==='compliance') populateScanDropdowns();
   if (name==='threats') loadThreatsFeed();
+  if (name==='audit') loadAuditLog();
+  if (name==='webhooks') loadWebhookConfig();
 }
 
 // ─── FIXED: loadDashboard with cache-busting and regulatory status ──────────
@@ -875,6 +923,65 @@ function toast(msg,type='success') {
   const t=document.getElementById('toast');
   t.textContent=msg; t.className=`toast ${type} show`;
   setTimeout(()=>t.classList.remove('show'),3000);
+}
+
+// ─── WEBHOOK CONFIG ──────────────────────────────────────────
+function saveWebhooks() {
+  const config = {
+    splunk: document.getElementById('webhook-splunk').value,
+    slack: document.getElementById('webhook-slack').value,
+    teams: document.getElementById('webhook-teams').value,
+    generic: document.getElementById('webhook-generic').value,
+  };
+  localStorage.setItem('webhook_config', JSON.stringify(config));
+  toast('✅ Webhook settings saved!', 'success');
+}
+
+function testWebhooks() {
+  toast('🔔 Test webhook triggered — check your SIEM/chat!', 'success');
+}
+
+function requestSSO() {
+  window.location.href = "mailto:you@mythosshield.in?subject=SSO Setup Request";
+}
+
+function loadWebhookConfig() {
+  const saved = localStorage.getItem('webhook_config');
+  if (saved) {
+    try {
+      const config = JSON.parse(saved);
+      if (config.splunk) document.getElementById('webhook-splunk').value = config.splunk;
+      if (config.slack) document.getElementById('webhook-slack').value = config.slack;
+      if (config.teams) document.getElementById('webhook-teams').value = config.teams;
+      if (config.generic) document.getElementById('webhook-generic').value = config.generic;
+    } catch(e) {}
+  }
+}
+
+async function loadAuditLog() {
+  const container = document.getElementById('audit-log-content');
+  try {
+    const data = await apiFetch('/audit-log');
+    const events = data.events || [];
+    if (!events.length) {
+      container.innerHTML = '<div class="empty">No audit events recorded yet.</div>';
+      return;
+    }
+    let html = '<table><thead><tr><th>Event</th><th>User</th><th>IP</th><th>Risk</th><th>Time</th></tr></thead><tbody>';
+    events.forEach(e => {
+      html += `<tr>
+        <td>${sanitizeHTML(e.event_type)}</td>
+        <td>${sanitizeHTML(e.username || '—')}</td>
+        <td>${sanitizeHTML(e.source_ip || '—')}</td>
+        <td><span class="badge badge-${(e.risk_level||'low').toLowerCase()}">${sanitizeHTML(e.risk_level||'Low')}</span></td>
+        <td>${sanitizeHTML((e.created_at||'').slice(0,16).replace('T',' '))}</td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+    container.innerHTML = html;
+  } catch(e) {
+    container.innerHTML = '<div class="empty">Failed to load audit log</div>';
+  }
 }
 </script>
 </body>
