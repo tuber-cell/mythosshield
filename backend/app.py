@@ -854,6 +854,49 @@ def audit_log():
     return jsonify({"events": [dict(r) for r in rows]})
 
 
+# ─── WEBHOOK CONFIG ENDPOINTS ────────────────────────────────
+@app.post("/api/webhooks")
+def save_webhook_config():
+    user, error_response, status = get_user_from_token()
+    if error_response:
+        return error_response, status
+    
+    data = request.json or {}
+    generic_url = data.get("generic", "")
+    
+    # Save to database
+    from database import get_connection
+    conn = get_connection()
+    conn.execute(
+        "INSERT OR REPLACE INTO webhooks (tenant_id, url, active) VALUES (?, ?, 1)",
+        (user["uid"], generic_url)
+    )
+    conn.commit()
+    conn.close()
+    
+    # Update in-memory webhook targets
+    WEBHOOK_TARGETS["generic"] = generic_url
+    
+    return jsonify({"status": "saved", "url": generic_url}), 200
+
+
+@app.get("/api/webhooks")
+def get_webhook_config():
+    user, error_response, status = get_user_from_token()
+    if error_response:
+        return error_response, status
+    
+    from database import get_connection
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT url FROM webhooks WHERE tenant_id=? AND active=1",
+        (user["uid"],)
+    ).fetchone()
+    conn.close()
+    
+    return jsonify({"generic": row["url"] if row else ""}), 200
+
+
 @app.get("/scan/<scan_id>")
 def get_scan(scan_id):
     user, error_response, status = get_user_from_token()

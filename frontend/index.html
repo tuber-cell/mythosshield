@@ -926,15 +926,20 @@ function toast(msg,type='success') {
 }
 
 // ─── WEBHOOK CONFIG ──────────────────────────────────────────
-function saveWebhooks() {
+async function saveWebhooks() {
   const config = {
-    splunk: document.getElementById('webhook-splunk').value,
-    slack: document.getElementById('webhook-slack').value,
-    teams: document.getElementById('webhook-teams').value,
     generic: document.getElementById('webhook-generic').value,
   };
-  localStorage.setItem('webhook_config', JSON.stringify(config));
-  toast('✅ Webhook settings saved!', 'success');
+  
+  // ── SEND TO BACKEND ────────────────────────────────────────
+  try {
+    const response = await apiFetch('/api/webhooks', 'POST', config);
+    toast('✅ Webhook settings saved to backend!', 'success');
+  } catch(e) {
+    // Fallback: save to localStorage
+    localStorage.setItem('webhook_config', JSON.stringify(config));
+    toast('✅ Webhook settings saved locally (backend not reachable)', 'success');
+  }
 }
 
 function testWebhooks() {
@@ -945,16 +950,21 @@ function requestSSO() {
   window.location.href = "mailto:you@mythosshield.in?subject=SSO Setup Request";
 }
 
-function loadWebhookConfig() {
-  const saved = localStorage.getItem('webhook_config');
-  if (saved) {
-    try {
-      const config = JSON.parse(saved);
-      if (config.splunk) document.getElementById('webhook-splunk').value = config.splunk;
-      if (config.slack) document.getElementById('webhook-slack').value = config.slack;
-      if (config.teams) document.getElementById('webhook-teams').value = config.teams;
-      if (config.generic) document.getElementById('webhook-generic').value = config.generic;
-    } catch(e) {}
+async function loadWebhookConfig() {
+  try {
+    const data = await apiFetch('/api/webhooks');
+    if (data.generic) {
+      document.getElementById('webhook-generic').value = data.generic;
+    }
+  } catch(e) {
+    // Fallback: load from localStorage
+    const saved = localStorage.getItem('webhook_config');
+    if (saved) {
+      try {
+        const config = JSON.parse(saved);
+        if (config.generic) document.getElementById('webhook-generic').value = config.generic;
+      } catch(e) {}
+    }
   }
 }
 
