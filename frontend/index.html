@@ -942,8 +942,36 @@ async function saveWebhooks() {
   }
 }
 
-function testWebhooks() {
-  toast('🔔 Test webhook triggered — check your SIEM/chat!', 'success');
+// ─── FIXED: testWebhooks now actually sends a request ────────
+async function testWebhooks() {
+  const url = document.getElementById('webhook-generic').value;
+  if (!url) {
+    toast('Please paste a webhook URL first', 'error');
+    return;
+  }
+  
+  try {
+    toast('📤 Sending test webhook...', 'success');
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        source: "MythosShield",
+        event: "test_connection",
+        timestamp: new Date().toISOString(),
+        message: "This is a test webhook from MythosShield"
+      })
+    });
+    
+    if (response.ok) {
+      toast('✅ Test webhook sent! Check webhook.site inbox.', 'success');
+    } else {
+      toast('❌ Test failed. Status: ' + response.status, 'error');
+    }
+  } catch(e) {
+    toast('❌ Error: ' + e.message, 'error');
+    console.error(e);
+  }
 }
 
 function requestSSO() {
