@@ -897,6 +897,41 @@ def get_webhook_config():
     return jsonify({"generic": row["url"] if row else ""}), 200
 
 
+# ─── TEST WEBHOOK ENDPOINT ────────────────────────────────────
+@app.post("/api/test-webhook")
+def test_webhook():
+    user, error_response, status = get_user_from_token()
+    if error_response:
+        return error_response, status
+    
+    data = request.json or {}
+    url = data.get("url")
+    
+    if not url:
+        return jsonify({"error": "No URL provided"}), 400
+    
+    try:
+        response = requests.post(url, json={
+            "source": "MythosShield",
+            "event": "test_connection",
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "message": "This is a test webhook from MythosShield (via backend)",
+            "version": "2.3.0"
+        }, timeout=10)
+        
+        return jsonify({
+            "status": "sent",
+            "code": response.status_code,
+            "message": "Webhook sent successfully"
+        }), 200
+    except requests.exceptions.Timeout:
+        return jsonify({"error": "Timeout - webhook URL not responding"}), 504
+    except requests.exceptions.ConnectionError:
+        return jsonify({"error": "Connection error - URL may be invalid"}), 503
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.get("/scan/<scan_id>")
 def get_scan(scan_id):
     user, error_response, status = get_user_from_token()
