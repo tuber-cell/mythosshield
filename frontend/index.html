@@ -942,16 +942,24 @@ async function saveWebhooks() {
   }
 }
 
-// ─── FIXED: testWebhooks now actually sends a request ────────
+// ─── FIXED: testWebhooks now actually sends a real HTTP request ────────
 async function testWebhooks() {
   const url = document.getElementById('webhook-generic').value;
+  
   if (!url) {
     toast('Please paste a webhook URL first', 'error');
     return;
   }
   
+  // ── SHOW LOADING STATE ────────────────────────────────────
+  const btn = document.querySelector('#page-webhooks .btn-ghost');
+  const originalText = btn.textContent;
+  btn.textContent = '⏳ Sending...';
+  btn.disabled = true;
+  
   try {
-    toast('📤 Sending test webhook...', 'success');
+    toast('📤 Sending test webhook to ' + url, 'success');
+    
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -959,7 +967,8 @@ async function testWebhooks() {
         source: "MythosShield",
         event: "test_connection",
         timestamp: new Date().toISOString(),
-        message: "This is a test webhook from MythosShield"
+        message: "This is a test webhook from MythosShield",
+        version: "2.3.0"
       })
     });
     
@@ -970,7 +979,10 @@ async function testWebhooks() {
     }
   } catch(e) {
     toast('❌ Error: ' + e.message, 'error');
-    console.error(e);
+    console.error('Webhook test error:', e);
+  } finally {
+    btn.textContent = originalText;
+    btn.disabled = false;
   }
 }
 
