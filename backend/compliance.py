@@ -289,10 +289,124 @@ def generate_rbi_dpip_report(scan_data):
             ]}
 
 
+def generate_rbi_mrm_2026_report(scan_data):
+    """RBI Draft Guidance on Regulatory Principles for Model Risk Management, 2026
+    (released 24 June 2026, comments due 24 July 2026). This is the framework that
+    introduced mandatory model inventories (incl. 'shadow models'), kill-switch
+    arrangements, human oversight, and board-level accountability for every model
+    a regulated entity runs — including third-party and embedded ones.
+    This is a DRAFT under public consultation, not yet a final circular."""
+    aibom  = scan_data.get("aibom", {})
+    models = aibom.get("models", [])
+
+    has_kill_switch  = _has_signal(scan_data, ["kill-switch", "kill_switch", "circuit-breaker", "feature-flag", "model-disable"])
+    has_human_review = _has_signal(scan_data, AUDIT_LOG_KEYWORDS + ["human-in-the-loop", "human-review", "hitl"])
+
+    checks = [
+        {
+            "item": "Model inventory (incl. shadow/embedded models)",
+            "passed": len(models) > 0,
+            "heuristic": False,
+            "gap": "No AI/ML model artifacts detected in this codebase scan" if not models else None,
+            "action": "Maintain a board-visible inventory of every model in use, including third-party and embedded ones — RBI's draft explicitly covers models an RE hasn't formally classified as such" if not models else None
+        },
+        {
+            "item": "Kill-switch / override arrangement",
+            "passed": has_kill_switch,
+            "heuristic": True,
+            "gap": None if has_kill_switch else "No kill-switch, circuit-breaker, or feature-flag mechanism name matched in codebase",
+            "action": None if has_kill_switch else "Implement a documented mechanism to instantly override, suspend, or deactivate each production model"
+        },
+        {
+            "item": "Human-in-the-loop / oversight for automated decisions",
+            "passed": has_human_review,
+            "heuristic": True,
+            "gap": None if has_human_review else "No human-oversight or review-logging tooling name matched",
+            "action": None if has_human_review else "Add human review checkpoints and explainability logging for models influencing customer decisions"
+        },
+    ]
+    passed = sum(1 for c in checks if c["passed"])
+    status, pct = _status(passed, len(checks))
+    gaps    = [c for c in checks if not c["passed"] and c["gap"]]
+    actions = [c["action"] for c in checks if not c["passed"] and c["action"]]
+    return {"regulation": "RBI Model Risk Mgmt (Draft, Jun 2026)", "status": status, "score_pct": pct,
+            "checks": checks, "gaps": gaps, "recommended_actions": actions,
+            "methodology_note": METHODOLOGY_NOTE + " This framework is a draft open for public comment until 24 July 2026 — not yet final."}
+
+
+def generate_eu_ai_act_report(scan_data):
+    """EU AI Act — high-risk AI system obligations (risk classification, human
+    oversight, technical documentation, logging). Included so the same scan can
+    produce a global-framework view alongside the Indian one, using the same
+    underlying model-inventory and audit-log signals."""
+    aibom  = scan_data.get("aibom", {})
+    models = aibom.get("models", [])
+    has_audit_log = _has_signal(scan_data, AUDIT_LOG_KEYWORDS)
+
+    checks = [
+        {
+            "item": "AI system risk classification documented",
+            "passed": len(models) > 0,
+            "heuristic": False,
+            "gap": "No AI model artifacts found — risk tier cannot be assigned" if not models else None,
+            "action": "Classify each AI system by risk tier (minimal/limited/high/unacceptable) per Art. 6" if not models else None
+        },
+        {
+            "item": "Technical documentation & logging (Art. 12)",
+            "passed": has_audit_log,
+            "heuristic": True,
+            "gap": None if has_audit_log else "No logging/explainability tooling name matched",
+            "action": None if has_audit_log else "Maintain automatic event logs for the lifetime of each high-risk AI system"
+        },
+    ]
+    passed = sum(1 for c in checks if c["passed"])
+    status, pct = _status(passed, len(checks))
+    gaps    = [c for c in checks if not c["passed"] and c["gap"]]
+    actions = [c["action"] for c in checks if not c["passed"] and c["action"]]
+    return {"regulation": "EU AI Act", "status": status, "score_pct": pct,
+            "checks": checks, "gaps": gaps, "recommended_actions": actions,
+            "methodology_note": METHODOLOGY_NOTE}
+
+
+def generate_dora_report(scan_data):
+    """EU DORA — ICT third-party risk register requirement, mapped from the
+    same SBOM component data used for the Indian reports."""
+    components = scan_data.get("sbom", {}).get("artifacts", [])
+    vulns = scan_data.get("vulnerabilities", [])
+    critical = sum(1 for v in vulns if v.get("severity", "").lower() == "critical")
+
+    checks = [
+        {
+            "item": "ICT third-party register (Art. 28)",
+            "passed": len(components) > 0,
+            "heuristic": False,
+            "gap": "No component inventory to build a third-party ICT register from" if not components else None,
+            "action": "Generate SBOM for all third-party ICT services in scope" if not components else None
+        },
+        {
+            "item": "ICT risk remediation (critical findings)",
+            "passed": critical == 0,
+            "heuristic": False,
+            "gap": f"{critical} critical vulnerabilities unresolved in third-party components" if critical else None,
+            "action": "Remediate critical CVEs in third-party ICT components" if critical else None
+        },
+    ]
+    passed = sum(1 for c in checks if c["passed"])
+    status, pct = _status(passed, len(checks))
+    gaps    = [c for c in checks if not c["passed"] and c["gap"]]
+    actions = [c["action"] for c in checks if not c["passed"] and c["action"]]
+    return {"regulation": "EU DORA", "status": status, "score_pct": pct,
+            "checks": checks, "gaps": gaps, "recommended_actions": actions,
+            "methodology_note": METHODOLOGY_NOTE}
+
+
 def generate_all_reports(scan_data):
     return {
-        "dpdpa": generate_dpdpa_report(scan_data),
-        "sebi":  generate_sebi_report(scan_data),
-        "bis":   generate_bis_report(scan_data),
-        "rbi":   generate_rbi_dpip_report(scan_data),
+        "dpdpa":        generate_dpdpa_report(scan_data),
+        "sebi":         generate_sebi_report(scan_data),
+        "bis":          generate_bis_report(scan_data),
+        "rbi":          generate_rbi_dpip_report(scan_data),
+        "rbi_mrm_2026": generate_rbi_mrm_2026_report(scan_data),
+        "eu_ai_act":    generate_eu_ai_act_report(scan_data),
+        "dora":         generate_dora_report(scan_data),
     }

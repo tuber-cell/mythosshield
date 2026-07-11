@@ -151,6 +151,25 @@ def save_security_events(tenant_id: int, findings: list, path: str = DB_PATH) ->
     return inserted
 
 
+def record_kill_switch_action(tenant_id: int, vendor: str, reason: str, username: str = None, path: str = DB_PATH) -> None:
+    """Persist a kill-switch / override action as an immutable audit event.
+    Reuses the security_events table (event_type='kill_switch_triggered') so
+    every kill-switch action already shows up in the existing Audit Log view —
+    this is the RBI draft's 'mechanism to override, suspend, or deactivate a
+    model' requirement made into a real, timestamped record, not just a UI click."""
+    conn = get_connection(path)
+    try:
+        conn.execute(
+            """INSERT INTO security_events
+               (tenant_id, event_type, vendor, source_ip, username, risk_level, reason, raw_finding)
+               VALUES (?, 'kill_switch_triggered', ?, NULL, ?, 'CRITICAL', ?, ?)""",
+            (tenant_id, vendor, username, reason, json.dumps({"vendor": vendor, "reason": reason})),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def get_custom_endpoints(tenant_id: int, path: str = DB_PATH) -> dict:
     """Load bank-defined custom AI endpoint rules. Returns {pattern: vendor_name}."""
     conn = get_connection(path)

@@ -18,7 +18,7 @@ import bcrypt
 import requests
 import requests as req  # For webhooks
 
-from database import init_db, seed_demo, save_security_events, get_custom_endpoints
+from database import init_db, seed_demo, save_security_events, get_custom_endpoints, record_kill_switch_action
 
 init_db()
 try:
@@ -1002,6 +1002,48 @@ def detect_shadow_ai():
         print(f"[Warning] Could not save security events: {e}")
 
     return jsonify(result), 200
+
+
+@app.post("/shadow-ai/kill-switch")
+@limiter.limit("30 per hour")
+def shadow_ai_kill_switch():
+    """Records an override/suspend action against a detected shadow AI vendor.
+    This does not (and cannot, from a hosted SaaS backend) actually block traffic
+    on the bank's own network — that requires integration with the bank's own
+    firewall/proxy/SSO. What this endpoint does is create the immutable,
+    timestamped record RBI's draft model-risk guidance requires: who suspended
+    access to what, when, and why. Wire the webhook config (SIEM/Slack/Teams) to
+    fan this out to the team that owns the actual network control."""
+    user, error_response, status = get_user_from_token()
+    if error_response:
+        return error_response, status
+    data   = request.json or {}
+    vendor = (data.get("vendor") or "").strip()
+    reason = (data.get("reason") or "Manually triggered from Shadow AI dashboard").strip()
+    if not vendor:
+        return jsonify({"error": "vendor is required"}), 400
+
+    tenant_id = user.get("uid", "demo-id")
+    username  = user.get("email", "unknown")
+    try:
+        record_kill_switch_action(tenant_id, vendor, reason, username)
+    except Exception as e:
+        return jsonify({"error": f"Could not record kill-switch action: {e}"}), 500
+
+    try:
+        fire_webhooks("kill_switch_triggered", {
+            "vendor": vendor, "reason": reason, "username": username,
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
+        })
+    except Exception:
+        pass
+
+    return jsonify({
+        "status": "recorded",
+        "vendor": vendor,
+        "message": f"Override recorded for {vendor}. This is an audit record, not a live network block — "
+                   f"connect a SIEM/firewall webhook above to enforce it automatically."
+    }), 200
 
 
 @app.post("/threats/publish")

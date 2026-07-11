@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MythosShield — Cybersecurity Compliance for Indian Banks</title>
+<title>MythosShield — AI &amp; Cybersecurity Compliance for Banks (India + Global)</title>
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
@@ -126,9 +126,14 @@ td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--te
 
 <!-- AUTH PAGE -->
 <div id="auth-page">
-  <div class="auth-box">
+  <div class="auth-box" style="width:460px">
     <div class="auth-logo">⬡ MythosShield</div>
-    <div class="auth-sub">Cybersecurity compliance platform for Indian banks</div>
+    <div id="hero-region-toggle" style="display:flex;gap:6px;margin-bottom:14px">
+      <button type="button" class="btn btn-sm hero-region-btn active" data-region="india" onclick="setHeroRegion('india')" style="background:var(--accent);color:#000;border:none">🇮🇳 Indian Bank</button>
+      <button type="button" class="btn btn-sm hero-region-btn" data-region="global" onclick="setHeroRegion('global')" style="background:transparent;color:var(--text);border:1px solid var(--border2)">🌐 Global Institution</button>
+    </div>
+    <div class="auth-sub" id="hero-tagline" style="margin-bottom:10px">One shadow-AI &amp; model-risk engine, mapped to CERT-In, RBI DPIP and the RBI's June 2026 Model Risk Management draft.</div>
+    <div id="hero-frameworks" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:22px"></div>
     <div class="auth-tabs">
       <div class="auth-tab active" onclick="switchAuthTab('login')">Login</div>
       <div class="auth-tab" onclick="switchAuthTab('register')">Register</div>
@@ -151,9 +156,15 @@ td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--te
       </div>
     </div>
     <div id="register-form" style="display:none">
-      <div class="form-group"><label>Bank Name</label><input type="text" id="reg-bank" placeholder="State Bank of India"></div>
+      <div class="form-group"><label>Bank / Institution Name</label><input type="text" id="reg-bank" placeholder="State Bank of India"></div>
+      <div class="form-group"><label>Country</label>
+        <select id="reg-country" onchange="toggleGSTField()">
+          <option value="IN">India</option>
+          <option value="OTHER">Other / Global</option>
+        </select>
+      </div>
       <div class="form-group"><label>Email</label><input type="email" id="reg-email" placeholder="ciso@yourbank.in"></div>
-      <div class="form-group"><label>GST Number (optional)</label><input type="text" id="reg-gst" placeholder="22AAAAA0000A1Z5"></div>
+      <div class="form-group" id="reg-gst-group"><label>GST Number (optional)</label><input type="text" id="reg-gst" placeholder="22AAAAA0000A1Z5"></div>
       <div class="form-group">
         <label>Password</label>
         <div class="password-wrapper">
@@ -175,7 +186,7 @@ td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--te
       <div class="nav-item" onclick="showPage('scan')"><div class="nav-dot"></div> New Scan</div>
       <div class="nav-item" onclick="showPage('results')"><div class="nav-dot"></div> Scan Results</div>
       <div class="nav-item" onclick="showPage('compliance')"><div class="nav-dot"></div> Compliance Reports</div>
-      <div class="nav-item" onclick="showPage('shadow')"><div class="nav-dot"></div> Shadow AI</div>
+      <div class="nav-item" onclick="showPage('shadow')"><div class="nav-dot"></div> Shadow AI &amp; Model Inventory</div>
       <div class="nav-item" onclick="showPage('threats')"><div class="nav-dot"></div> Threat Sharing</div>
       <div class="nav-item" onclick="showPage('webhooks')"><div class="nav-dot"></div> SIEM Webhooks</div>
       <div class="nav-item" onclick="showPage('audit')"><div class="nav-dot"></div> Audit Log</div>
@@ -253,7 +264,16 @@ td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--te
 
     <div id="page-compliance" style="display:none">
       <h1>Compliance Reports</h1>
-      <p class="page-sub">DPDPA · SEBI · BIS · RBI DPIP — gap analysis</p>
+      <p class="page-sub">One scan, mapped to every framework that shares the same underlying controls</p>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px">
+        <span class="tag" title="India">🇮🇳 DPDPA 2023</span>
+        <span class="tag" title="India">🇮🇳 SEBI CSCRF</span>
+        <span class="tag" title="India">🇮🇳 BIS AI Data Quality</span>
+        <span class="tag" title="India">🇮🇳 RBI DPIP</span>
+        <span class="tag" style="border-color:var(--accent);color:var(--accent)" title="Draft, comments close 24 Jul 2026">🇮🇳 RBI Model Risk Mgmt (Draft 2026)</span>
+        <span class="tag" title="EU / Global">🌐 EU AI Act</span>
+        <span class="tag" title="EU / Global">🌐 EU DORA</span>
+      </div>
       <div style="margin-bottom:20px;display:flex;gap:12px;align-items:center">
         <select id="comp-scan-select" onchange="loadCompliance()"><option value="">Select a scan…</option></select>
         <button class="btn btn-ghost btn-sm" onclick="exportCompliancePDF()">↓ Export PDF</button>
@@ -263,8 +283,8 @@ td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--te
     </div>
 
     <div id="page-shadow" style="display:none">
-      <h1>Shadow AI Detection</h1>
-      <p class="page-sub">Detect unauthorised AI tool usage from proxy/network logs</p>
+      <h1>Shadow AI &amp; Model Inventory</h1>
+      <p class="page-sub">Detect unauthorised AI tool usage from proxy/network logs — mapped to RBI's Jun 2026 draft on model risk management, which requires an inventory of every model in use (including ones an RE hasn't formally classified as such) and a documented kill-switch arrangement.</p>
       <div class="grid-2">
         <div class="card">
           <div class="section-title">Upload Log Data (JSON)</div>
@@ -273,6 +293,7 @@ td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--te
             <button class="btn btn-primary" onclick="runShadowAI()">Analyse Logs</button>
             <button class="btn btn-ghost btn-sm" onclick="loadSampleLogs()">Load Sample</button>
           </div>
+          <p style="font-size:11px;color:var(--muted);margin-top:14px">Detects calls to 19 known AI vendor APIs by hostname, flags oversized/base64-heavy payloads as possible data exfiltration, and flags repeated identical prompts as scripted usage. Real signal from real logs — no simulated findings.</p>
         </div>
         <div class="card">
           <div class="section-title">Detection Results</div>
@@ -420,6 +441,37 @@ let token = localStorage.getItem('ms_token');
 let bankName = localStorage.getItem('ms_bank');
 let scans = [];
 
+const HERO_CONTENT = {
+  india: {
+    tagline: 'One shadow-AI &amp; model-risk engine, mapped to CERT-In, RBI DPIP and the RBI\'s June 2026 Model Risk Management draft.',
+    frameworks: ['CERT-In', 'RBI DPIP', 'RBI Model Risk Mgmt (Draft 2026)', 'DPDPA 2023', 'SEBI CSCRF']
+  },
+  global: {
+    tagline: 'The same detection engine, mapped to the EU AI Act, DORA, and NIST AI RMF — built around a framework-agnostic model-risk schema.',
+    frameworks: ['EU AI Act', 'EU DORA', 'NIST AI RMF']
+  }
+};
+function setHeroRegion(region) {
+  document.querySelectorAll('.hero-region-btn').forEach(b => {
+    const active = b.getAttribute('data-region') === region;
+    b.style.background = active ? 'var(--accent)' : 'transparent';
+    b.style.color = active ? '#000' : 'var(--text)';
+    b.style.border = active ? 'none' : '1px solid var(--border2)';
+  });
+  const c = HERO_CONTENT[region];
+  document.getElementById('hero-tagline').innerHTML = c.tagline;
+  document.getElementById('hero-frameworks').innerHTML = c.frameworks.map(f => `<span class="tag">${f}</span>`).join('');
+  if (region === 'global') document.getElementById('reg-country').value = 'OTHER';
+  else document.getElementById('reg-country').value = 'IN';
+  toggleGSTField();
+}
+function toggleGSTField() {
+  const group = document.getElementById('reg-gst-group');
+  const country = document.getElementById('reg-country')?.value;
+  if (group) group.style.display = (country === 'IN') ? 'block' : 'none';
+}
+setHeroRegion('india');
+
 function togglePassword(inputId, btn) {
   const input = document.getElementById(inputId);
   if (input.type === 'password') { input.type = 'text'; btn.textContent = '🙈'; }
@@ -491,6 +543,7 @@ async function doLogin() {
 
 async function doRegister() {
   const bank_name = document.getElementById('reg-bank').value;
+  const country = document.getElementById('reg-country')?.value || 'IN';
   const email = document.getElementById('reg-email').value;
   const gst_number = document.getElementById('reg-gst').value;
   const password = document.getElementById('reg-password').value;
@@ -503,7 +556,7 @@ async function doRegister() {
     await uc.user.updateProfile({ displayName: bank_name });
     const idToken = await uc.user.getIdToken();
     try {
-      await fetch(`${API}/auth/register`, { method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${idToken}`}, body:JSON.stringify({bank_name,email,gst_number,firebase_uid:uc.user.uid}) });
+      await fetch(`${API}/auth/register`, { method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${idToken}`}, body:JSON.stringify({bank_name,country,email,gst_number,firebase_uid:uc.user.uid}) });
     } catch(e) { console.warn('Backend save failed'); }
     toast('✅ Account created! Please login.', 'success');
     document.getElementById('reg-bank').value=''; document.getElementById('reg-email').value='';
@@ -800,16 +853,36 @@ async function runShadowAI() {
   try {
     const data = await apiFetch('/detect-shadow-ai','POST',{logs});
     const risk=data.risk_counts||{};
+    const vendors=[...new Set((data.findings||[]).filter(f=>f.vendor).map(f=>f.vendor))];
     document.getElementById('shadow-results').innerHTML = `
       <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
         <div class="card card-sm" style="flex:1"><div class="metric-label">Total</div><div class="metric-value" style="font-size:24px">${data.total_findings||0}</div></div>
         <div class="card card-sm" style="flex:1"><div class="metric-label">Critical</div><div class="metric-value" style="font-size:24px;color:var(--danger)">${risk.CRITICAL||0}</div></div>
         <div class="card card-sm" style="flex:1"><div class="metric-label">High</div><div class="metric-value" style="font-size:24px;color:var(--warn)">${risk.HIGH||0}</div></div>
       </div>
+      ${vendors.length ? `<div style="margin-bottom:16px"><div class="section-title">Override / Kill Switch</div><div style="display:flex;flex-direction:column;gap:8px">${vendors.map(v=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;background:var(--surface2);padding:10px 14px;border-radius:6px">
+          <span style="font-size:13px"><strong>${sanitizeHTML(v)}</strong> detected</span>
+          <button class="btn btn-sm" style="background:var(--danger);color:#fff" onclick="triggerKillSwitch('${sanitizeHTML(v).replace(/'/g,"\\'")}', this)">⛔ Suspend Access</button>
+        </div>`).join('')}</div>
+        <p style="font-size:11px;color:var(--muted);margin-top:8px">Creates a timestamped audit record (visible in Audit Log). To actually cut network access, connect the SIEM/Slack/Teams webhook above so your security team is notified in real time.</p>
+      </div>` : ''}
       <pre style="background:var(--surface2);padding:20px;border-radius:8px;overflow:auto;font-size:12px;max-height:400px">${JSON.stringify(data,null,2)}</pre>`;
     toast('Analysis complete!','success');
   } catch(e) { toast('Analysis failed: '+e.message,'error'); }
   finally { btn.textContent='Analyse Logs'; btn.disabled=false; }
+}
+
+async function triggerKillSwitch(vendor, btn) {
+  btn.textContent = 'Recording...'; btn.disabled = true;
+  try {
+    const data = await apiFetch('/shadow-ai/kill-switch', 'POST', { vendor, reason: 'Manually triggered from Shadow AI dashboard' });
+    toast(data.message || `Override recorded for ${vendor}`, 'success');
+    btn.textContent = '✓ Recorded'; btn.style.background = 'var(--muted)';
+  } catch(e) {
+    toast('Failed to record: ' + e.message, 'error');
+    btn.textContent = '⛔ Suspend Access'; btn.disabled = false;
+  }
 }
 
 async function publishThreat() {
