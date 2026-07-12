@@ -334,6 +334,21 @@ except Exception as e:
 
 
 # ─── 3-Layer Token Verification ───────────────────────────────
+def _resolve_demo_tenant_id():
+    """The demo login is a placeholder identity, not a real Firebase user, so it
+    has no natural integer tenants.id. Resolve it to the actual seeded demo row
+    (by email) instead of using the literal string 'demo-id', which never matched
+    any real tenant row and silently broke every FK-constrained insert
+    (security_events, scans, etc.)."""
+    from database import get_connection
+    conn = get_connection()
+    try:
+        row = conn.execute("SELECT id FROM tenants WHERE email = ?", ("demo@mythosshield.in",)).fetchone()
+        return row["id"] if row else "demo-id"
+    finally:
+        conn.close()
+
+
 def get_user_from_token():
     """
     Layer 1: HttpOnly cookie (ms_session)
@@ -351,7 +366,7 @@ def get_user_from_token():
         return None, jsonify({'error': 'Not authenticated'}), 401
 
     if id_token == 'demo-token':
-        return {'uid': 'demo-id', 'email': 'demo@mythosshield.in',
+        return {'uid': _resolve_demo_tenant_id(), 'email': 'demo@mythosshield.in',
                 'name': 'Demo Bank Ltd'}, None, None
 
     if firebase_initialized:
@@ -375,7 +390,7 @@ def get_user_from_token():
         print(f'[Auth] Manual decode failed: {e}')
 
     print('[Auth] All auth methods failed — falling back to demo')
-    return {'uid': 'demo-id', 'email': 'demo@mythosshield.in',
+    return {'uid': _resolve_demo_tenant_id(), 'email': 'demo@mythosshield.in',
             'name': 'Demo Bank Ltd'}, None, None
 
 
